@@ -753,7 +753,7 @@ void cairo_renderer_base::process(polygon_symbolizer const& sym,
 
     cairo_context context(context_);
 
-    context.set_color(sym.get_fill(), sym.get_opacity());
+    context.set_color(sym.get_fill(), sym.get_opacity(feature));
 
     for (unsigned i = 0; i < feature.num_geometries(); ++i)
     {

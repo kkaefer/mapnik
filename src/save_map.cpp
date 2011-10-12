@@ -112,7 +112,17 @@ public:
         }
         if ( sym.get_opacity() != dfl.get_opacity() || explicit_defaults_ )
         {
-            set_attr( sym_node, "fill-opacity", sym.get_opacity() );
+            const std::string & opacity = to_expression_string(*sym.get_opacity());
+            if ( ! opacity.empty() || explicit_defaults_ ) {
+                set_attr( sym_node, "fill-opacity", opacity );
+            }
+        }
+        if ( sym.get_gamma() != dfl.get_gamma() || explicit_defaults_ )
+        {
+            const std::string & gamma = to_expression_string(*sym.get_gamma());
+            if ( ! gamma.empty() || explicit_defaults_ ) {
+                set_attr( sym_node, "gamma", gamma );
+            }
         }
         if ( sym.get_gamma() != dfl.get_gamma() || explicit_defaults_ )
         {

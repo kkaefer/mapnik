@@ -124,6 +124,7 @@ source = Split(
     plugin.cpp
     png_reader.cpp
     point_symbolizer.cpp
+    polygon_symbolizer.cpp
     polygon_pattern_symbolizer.cpp
     save_map.cpp
     shield_symbolizer.cpp
