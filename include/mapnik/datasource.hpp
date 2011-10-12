@@ -31,9 +31,14 @@
 #include <mapnik/feature.hpp>
 #include <mapnik/query.hpp>
 #include <mapnik/feature_layer_desc.hpp>
+
 // boost
 #include <boost/utility.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/threadpool.hpp>
+
 // stl
 #include <map>
 #include <string>
@@ -64,7 +69,9 @@ public:
         return message_.c_str();
     }
 };
-    
+
+class datasource;
+typedef boost::shared_ptr<datasource> datasource_ptr;
 class MAPNIK_DECL datasource : private boost::noncopyable
 {
 public:        
@@ -72,6 +79,57 @@ public:
         Vector,
         Raster
     };
+
+    class MAPNIK_DECL retrieval : private boost::noncopyable {
+    public:
+        retrieval(datasource_ptr ds, query_ptr q) : datasource_(ds), query_(q) {
+            mutex_.lock();
+            pool().schedule(boost::bind(&retrieval::retrieve, this));
+        }
+
+        featureset_ptr features() {
+            boost::mutex::scoped_lock lock(mutex_);
+            return features_;
+        }
+
+        datasource_ptr datasource() {
+            return datasource_;
+        }
+
+        query_ptr query() {
+            return query_;
+        }
+
+    private:
+        void retrieve() {
+            try {
+                features_ = datasource_->features(*query_);
+            }
+            catch (const mapnik::datasource_exception& ex) {
+                std::clog << "Datasource exception in retrieval thread: " << ex.what() << "\n";
+            }
+            catch (const std::exception& ex) {
+                std::clog << "Exception in retrieval thread: " << ex.what() << "\n";
+            }
+            catch (...) {
+                std::clog << "Exception in retrieval thread\n";
+            }
+
+            mutex_.unlock();
+        }
+
+        static boost::threadpool::pool& pool() {
+            static boost::threadpool::pool pool(25);
+            return pool;
+        }
+
+    private:
+        datasource_ptr datasource_;
+        query_ptr query_;
+        featureset_ptr features_;
+        mutable boost::mutex mutex_;
+    };
+    typedef boost::shared_ptr<retrieval> retrieval_ptr;
 
     datasource (parameters const& params)
         : params_(params),
@@ -125,9 +183,7 @@ public:
     }
 };
 
-typedef boost::shared_ptr<datasource> datasource_ptr;
-    
-    
+
 #define DATASOURCE_PLUGIN(classname)                                    \
     extern "C" MAPNIK_EXP std::string datasource_name()                 \
     {                                                                   \
