@@ -24,6 +24,7 @@
 // mapnik
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/agg_rasterizer.hpp>
+#include <mapnik/polygon_symbolizer.hpp>
 
 // agg
 #include "agg_basics.h"
@@ -41,7 +42,7 @@ namespace mapnik {
 
 template <typename T>
 void agg_renderer<T>::process(polygon_symbolizer const& sym,
-                              Feature const& feature,
+                              mapnik::feature_ptr const& feature,
                               proj_transform const& prj_trans)
 {
     typedef coord_transform2<CoordTransform,geometry_type> path_type;
@@ -59,19 +60,40 @@ void agg_renderer<T>::process(polygon_symbolizer const& sym,
     unsigned g=fill_.green();
     unsigned b=fill_.blue();
     unsigned a=fill_.alpha();
+    renb.clip_box(0,0,width_,height_);
     renderer ren(renb);
-
+    
     ras_ptr->reset();
-    ras_ptr->gamma(agg::gamma_linear(0.0, sym.get_gamma()));
-    metawriter_with_properties writer = sym.get_metawriter();
-    for (unsigned i=0;i<feature.num_geometries();++i)
+    switch (sym.get_gamma_method())
     {
-        geometry_type const& geom=feature.get_geometry(i);
+    case GAMMA_POWER:
+        ras_ptr->gamma(agg::gamma_power(sym.get_gamma()));
+        break;
+    case GAMMA_LINEAR:
+        ras_ptr->gamma(agg::gamma_linear(0.0, sym.get_gamma()));
+        break;
+    case GAMMA_NONE:
+        ras_ptr->gamma(agg::gamma_none());
+        break;
+    case GAMMA_THRESHOLD:
+        ras_ptr->gamma(agg::gamma_threshold(sym.get_gamma()));
+        break;
+    case GAMMA_MULTIPLY:
+        ras_ptr->gamma(agg::gamma_multiply(sym.get_gamma()));
+        break;
+    default:
+        ras_ptr->gamma(agg::gamma_power(sym.get_gamma()));
+    }
+
+    metawriter_with_properties writer = sym.get_metawriter();
+    for (unsigned i=0;i<feature->num_geometries();++i)
+    {
+        geometry_type const& geom=feature->get_geometry(i);
         if (geom.num_points() > 2)
         {
             path_type path(t_,geom,prj_trans);
             ras_ptr->add_path(path);
-            if (writer.first) writer.first->add_polygon(path, feature, t_, writer.second);
+            if (writer.first) writer.first->add_polygon(path, *feature, t_, writer.second);
         }
     }
     ren.color(agg::rgba8(r, g, b, int(a * sym.get_opacity())));
@@ -80,8 +102,8 @@ void agg_renderer<T>::process(polygon_symbolizer const& sym,
 
 
 template void agg_renderer<image_32>::process(polygon_symbolizer const&,
-                                              Feature const&,
+                                              mapnik::feature_ptr const&,
                                               proj_transform const&);
 
 }
- 
+

@@ -27,6 +27,7 @@
 #include <mapnik/grid/grid_pixfmt.hpp>
 #include <mapnik/grid/grid_pixel.hpp>
 #include <mapnik/grid/grid.hpp>
+#include <mapnik/point_symbolizer.hpp>
 #include <mapnik/expression_evaluator.hpp>
 
 #include <mapnik/marker_cache.hpp>
@@ -38,11 +39,11 @@ namespace mapnik {
 
 template <typename T>
 void grid_renderer<T>::process(point_symbolizer const& sym,
-                              Feature const& feature,
-                              proj_transform const& prj_trans)
+                               mapnik::feature_ptr const& feature,
+                               proj_transform const& prj_trans)
 {
-    std::string filename = path_processor_type::evaluate(*sym.get_filename(), feature);
-    
+    std::string filename = path_processor_type::evaluate(*sym.get_filename(), *feature);
+
     boost::optional<mapnik::marker_ptr> marker;
     if ( !filename.empty() )
     {
@@ -55,9 +56,9 @@ void grid_renderer<T>::process(point_symbolizer const& sym,
 
     if (marker)
     {
-        for (unsigned i=0; i<feature.num_geometries(); ++i)
+        for (unsigned i=0; i<feature->num_geometries(); ++i)
         {
-            geometry_type const& geom = feature.get_geometry(i);
+            geometry_type const& geom = feature->get_geometry(i);
             double x;
             double y;
             double z=0;
@@ -93,8 +94,8 @@ void grid_renderer<T>::process(point_symbolizer const& sym,
 }
 
 template void grid_renderer<grid>::process(point_symbolizer const&,
-                                              Feature const&,
-                                              proj_transform const&);
+                                           mapnik::feature_ptr const&,
+                                           proj_transform const&);
 
 }
- 
+

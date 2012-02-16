@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -35,44 +35,51 @@
 namespace mapnik {
 
 enum eGeomType {
+    Unknown = 0,
     Point = 1,
-    LineString,
-    Polygon,
-    MultiPoint,
-    MultiLineString,
-    MultiPolygon
+    LineString = 2,
+    Polygon = 3
 };
 
-
 template <typename T, template <typename> class Container=vertex_vector>
-class geometry
+class geometry : private::boost::noncopyable
 {
 public:
     typedef T coord_type;
     typedef Container<coord_type> container_type;
     typedef typename container_type::value_type value_type;
-    
+    typedef typename container_type::size_type size_type;
 private:
     container_type cont_;
     eGeomType type_;
     mutable unsigned itr_;
 public:
-    
-    geometry(eGeomType type)
+
+    geometry()
+        : type_(Unknown),
+          itr_(0)
+    {}
+
+    explicit geometry(eGeomType type)
         : type_(type),
           itr_(0)
     {}
-    
-    eGeomType type() const 
+
+    eGeomType type() const
     {
         return type_;
     }
-        
+
+    void set_type(eGeomType type)
+    {
+        type_ = type;
+    }
+
     container_type const& data() const
     {
         return cont_;
     }
-    
+
     box2d<double> envelope() const
     {
         box2d<double> result;
@@ -128,7 +135,7 @@ public:
                 }
                 // if the path segment crosses the bisector
                 else if ((y0 <= *y && y1 >= *y) ||
-                        (y0 >= *y && y1 <= *y))
+                         (y0 >= *y && y1 <= *y))
                 {
                     // then calculate the intersection
                     double xi = x0;
@@ -164,23 +171,23 @@ public:
     }
 
     /* center of gravity centroid
-      - best visually but does not work with multipolygons
+       - best visually but does not work with multipolygons
     */
     void label_position(double *x, double *y) const
     {
-        if (type_ == LineString || type_ == MultiLineString)
+        if (type_ == LineString)
         {
             middle_point(x,y);
             return;
         }
 
         unsigned size = cont_.size();
-        if (size < 3) 
+        if (size < 3)
         {
             cont_.get_vertex(0,x,y);
             return;
         }
-           
+
         double ai;
         double atmp = 0;
         double xtmp = 0;
@@ -191,9 +198,9 @@ public:
         double y1 =0;
         double ox =0;
         double oy =0;
-           
+
         unsigned i;
-           
+
         // Use first point as origin to improve numerical accuracy
         cont_.get_vertex(0,&ox,&oy);
 
@@ -201,7 +208,7 @@ public:
         {
             cont_.get_vertex(i,&x0,&y0);
             cont_.get_vertex(i+1,&x1,&y1);
-               
+
             x0 -= ox; y0 -= oy;
             x1 -= ox; y1 -= oy;
 
@@ -209,7 +216,7 @@ public:
             atmp += ai;
             xtmp += (x1 + x0) * ai;
             ytmp += (y1 + y0) * ai;
-        }    
+        }
         if (atmp != 0)
         {
             *x = (xtmp/(3*atmp)) + ox;
@@ -217,7 +224,7 @@ public:
             return;
         }
         *x=x0;
-        *y=y0;            
+        *y=y0;
     }
 
     /* center of bounding box centroid */
@@ -226,13 +233,13 @@ public:
 
         box2d<double> box = envelope();
         *x = box.center().x;
-        *y = box.center().y; 
+        *y = box.center().y;
     }
 
     /* summarized distance centroid */
     void label_position3(double *x, double *y) const
     {
-        if (type_ == LineString || type_ == MultiLineString)
+        if (type_ == LineString)
         {
             middle_point(x,y);
             return;
@@ -247,7 +254,7 @@ public:
         double y0 = 0.0;
         double x1 = 0.0;
         double y1 = 0.0;
-        unsigned size = cont_.size();   
+        unsigned size = cont_.size();
         for (i = 0; i < size-1; i++)
         {
             cont_.get_vertex(i,&x0,&y0);
@@ -260,7 +267,7 @@ public:
         *x = cx / tl;
         *y = cy / tl;
     }
-                 
+
     void middle_point(double *x, double *y) const
     {
         // calculate mid point on path
@@ -268,18 +275,18 @@ public:
         double y0=0;
         double x1=0;
         double y1=0;
-      
+
         unsigned size = cont_.size();
         if (size == 1)
         {
-            cont_.get_vertex(0,x,y); 
+            cont_.get_vertex(0,x,y);
         }
         else if (size == 2)
         {
             cont_.get_vertex(0,&x0,&y0);
             cont_.get_vertex(1,&x1,&y1);
             *x = 0.5 * (x1 + x0);
-            *y = 0.5 * (y1 + y0);    
+            *y = 0.5 * (y1 + y0);
         }
         else
         {
@@ -299,7 +306,7 @@ public:
                 cont_.get_vertex(pos-1,&x0,&y0);
                 cont_.get_vertex(pos,&x1,&y1);
                 double dx = x1 - x0;
-                double dy = y1 - y0; 
+                double dy = y1 - y0;
                 double seg_len = std::sqrt(dx * dx + dy * dy);
                 if (( dist + seg_len) >= midlen)
                 {
@@ -310,10 +317,10 @@ public:
                 }
                 dist += seg_len;
             }
-        }  
+        }
     }
-    
-    void push_vertex(coord_type x, coord_type y, CommandType c) 
+
+    void push_vertex(coord_type x, coord_type y, CommandType c)
     {
         cont_.push_back(x,y,c);
     }
@@ -322,34 +329,34 @@ public:
     {
         push_vertex(x,y,SEG_LINETO);
     }
-         
+
     void move_to(coord_type x,coord_type y)
     {
         push_vertex(x,y,SEG_MOVETO);
     }
-    
+
     unsigned num_points() const
     {
         return cont_.size();
     }
-         
+
     unsigned vertex(double* x, double* y) const
     {
         return cont_.get_vertex(itr_++,x,y);
-    }         
+    }
 
     unsigned get_vertex(unsigned pos, double* x, double* y) const
     {
         return cont_.get_vertex(pos, x, y);
-    }         
+    }
 
     void rewind(unsigned ) const
     {
         itr_=0;
     }
-         
+
     bool hit_test(coord_type x, coord_type y, double tol) const
-    {      
+    {
         if (cont_.size() == 1) {
             // Handle points
             double x0, y0;
@@ -361,7 +368,7 @@ public:
             double y0=0;
             rewind(0);
             vertex(&x0, &y0);
-                
+
             unsigned command;
             double x1,y1;
             while (SEG_END != (command=vertex(&x1, &y1)))
@@ -371,7 +378,7 @@ public:
                     x0 = x1;
                     y0 = y1;
                     continue;
-                }               
+                }
                 if ((((y1 <= y) && (y < y0)) ||
                      ((y0 <= y) && (y < y1))) &&
                     ( x < (x0 - x1) * (y - y1)/ (y0 - y1) + x1))
@@ -382,17 +389,13 @@ public:
             return inside;
         }
         return false;
-    } 
-         
-    void set_capacity(size_t size) 
-    {
-        cont_.set_capacity(size);
     }
+    
 };
-   
-typedef geometry<double,vertex_vector> geometry_type; 
+
+typedef geometry<double,vertex_vector> geometry_type;
 typedef boost::shared_ptr<geometry_type> geometry_ptr;
-typedef boost::ptr_vector<geometry_type> geometry_containter;
+typedef boost::ptr_vector<geometry_type> geometry_container;
 
 }
 

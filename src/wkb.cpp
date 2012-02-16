@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -49,7 +49,7 @@ private:
     wkbFormat format_;
 
 public:
-        
+
     enum wkbGeometryType {
         wkbPoint=1,
         wkbLineString=2,
@@ -112,18 +112,15 @@ public:
         needSwap_ = byteOrder_ ? wkbXDR : wkbNDR;
 #else
         needSwap_ = byteOrder_ ? wkbNDR : wkbXDR;
-#endif      
+#endif
     }
 
-    ~wkb_reader() {}
-
-    void read_multi(boost::ptr_vector<geometry_type> & paths) 
+    void read(boost::ptr_vector<geometry_type> & paths)
     {
         int type = read_integer();
 
 #ifdef MAPNIK_DEBUG_WKB
-        std::clog << "wkb_reader: read_multi "
-                  << wkb_geometry_type_string(type) << " " << type << std::endl;
+        std::clog << "wkb_reader: read " << wkb_geometry_type_string(type) << " " << type << std::endl;
 #endif
 
         switch (type)
@@ -174,82 +171,25 @@ public:
             break;
         }
     }
-         
-    void read(boost::ptr_vector<geometry_type> & paths) 
-    {
-        int type = read_integer();
 
-#ifdef MAPNIK_DEBUG_WKB
-        std::clog << "wkb_reader: read " << wkb_geometry_type_string(type) << " " << type << std::endl;
-#endif
-
-        switch (type)
-        {
-        case wkbPoint:
-            read_point(paths);
-            break;
-        case wkbLineString:
-            read_linestring(paths);
-            break;
-        case wkbPolygon:
-            read_polygon(paths);
-            break;
-        case wkbMultiPoint:
-            read_multipoint_2(paths);
-            break;
-        case wkbMultiLineString:
-            read_multilinestring_2(paths);
-            break;
-        case wkbMultiPolygon:
-            read_multipolygon_2(paths);
-            break;
-        case wkbGeometryCollection:
-            read_collection_2(paths);
-            break;
-        case wkbPointZ:
-            read_point_xyz(paths);
-            break;
-        case wkbLineStringZ:
-            read_linestring_xyz(paths);
-            break;
-        case wkbPolygonZ:
-            read_polygon_xyz(paths);
-            break;
-        case wkbMultiPointZ:
-            read_multipoint_xyz_2(paths);
-            break;
-        case wkbMultiLineStringZ:
-            read_multilinestring_xyz_2(paths);
-            break;
-        case wkbMultiPolygonZ:
-            read_multipolygon_xyz_2(paths);
-            break;
-        case wkbGeometryCollectionZ:
-            read_collection_2(paths);
-            break;
-        default:
-            break;
-        }
-    }
-          
 private:
-        
-    int read_integer() 
+
+    int read_integer()
     {
         boost::int32_t n;
         if (needSwap_)
         {
             read_int32_xdr(wkb_ + pos_, n);
-        } 
-        else 
+        }
+        else
         {
             read_int32_ndr(wkb_ + pos_, n);
         }
         pos_ += 4;
-            
+
         return n;
     }
-        
+
     double read_double()
     {
         double d;
@@ -257,15 +197,15 @@ private:
         {
             read_double_xdr(wkb_ + pos_, d);
         }
-        else 
+        else
         {
             read_double_ndr(wkb_ + pos_, d);
         }
         pos_ += 8;
-            
+
         return d;
     }
-        
+
     void read_coords(CoordinateArray& ar)
     {
         if (! needSwap_)
@@ -277,7 +217,7 @@ private:
                 pos_ += 16; // skip XY
             }
         }
-        else 
+        else
         {
             for (unsigned i=0;i<ar.size();++i)
             {
@@ -319,7 +259,7 @@ private:
         pt->move_to(x, y);
         paths.push_back(pt);
     }
-         
+
     void read_multipoint(boost::ptr_vector<geometry_type> & paths)
     {
         int num_points = read_integer();
@@ -328,20 +268,6 @@ private:
             pos_ += 5;
             read_point(paths);
         }
-    }
-         
-    void read_multipoint_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* pt = new geometry_type(MultiPoint);
-        int num_points = read_integer(); 
-        for (int i = 0; i < num_points; ++i)
-        {
-            pos_ += 5;
-            double x = read_double();
-            double y = read_double();
-            pt->move_to(x, y);
-        }
-        paths.push_back(pt);
     }
 
     void read_point_xyz(boost::ptr_vector<geometry_type> & paths)
@@ -364,29 +290,12 @@ private:
         }
     }
 
-    void read_multipoint_xyz_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* pt = new geometry_type(MultiPoint);
-        int num_points = read_integer();
-        for (int i = 0; i < num_points; ++i)
-        {
-            pos_ += 5;
-            double x = read_double();
-            double y = read_double();
-            pos_ += 8; // double z = read_double();
-            pt->move_to(x, y);
-        }
-        paths.push_back(pt);
-    }
-
-
     void read_linestring(boost::ptr_vector<geometry_type> & paths)
     {
         geometry_type* line = new geometry_type(LineString);
         int num_points = read_integer();
         CoordinateArray ar(num_points);
         read_coords(ar);
-        line->set_capacity(num_points);
         line->move_to(ar[0].x, ar[0].y);
         for (int i = 1; i < num_points; ++i)
         {
@@ -394,7 +303,7 @@ private:
         }
         paths.push_back(line);
     }
-         
+
     void read_multilinestring(boost::ptr_vector<geometry_type> & paths)
     {
         int num_lines = read_integer();
@@ -405,35 +314,12 @@ private:
         }
     }
 
-    void read_multilinestring_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* line = new geometry_type(MultiLineString);
-        int num_lines = read_integer();
-        unsigned capacity = 0;
-        for (int i = 0; i < num_lines; ++i)
-        {
-            pos_ += 5;
-            int num_points = read_integer();
-            capacity += num_points;
-            CoordinateArray ar(num_points); 
-            read_coords(ar);
-            line->set_capacity(capacity);
-            line->move_to(ar[0].x, ar[0].y);
-            for (int j = 1; j < num_points; ++j)
-            { 
-                line->line_to(ar[j].x, ar[j].y);
-            } 
-        }
-        paths.push_back(line);
-    }
-
     void read_linestring_xyz(boost::ptr_vector<geometry_type> & paths)
     {
         geometry_type* line = new geometry_type(LineString);
         int num_points = read_integer();
         CoordinateArray ar(num_points);
         read_coords_xyz(ar);
-        line->set_capacity(num_points);
         line->move_to(ar[0].x, ar[0].y);
         for (int i = 1; i < num_points; ++i)
         {
@@ -452,30 +338,8 @@ private:
         }
     }
 
-    void read_multilinestring_xyz_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* line = new geometry_type(MultiLineString);
-        int num_lines = read_integer();
-        unsigned capacity = 0;
-        for (int i = 0; i < num_lines; ++i)
-        {
-            pos_ += 5;
-            int num_points = read_integer();
-            capacity += num_points;
-            CoordinateArray ar(num_points);
-            read_coords_xyz(ar);
-            line->set_capacity(capacity);
-            line->move_to(ar[0].x, ar[0].y);
-            for (int j = 1; j < num_points; ++j)
-            {
-                line->line_to(ar[j].x, ar[j].y);
-            }
-        }
-        paths.push_back(line);
-    }
 
-
-    void read_polygon(boost::ptr_vector<geometry_type> & paths) 
+    void read_polygon(boost::ptr_vector<geometry_type> & paths)
     {
         geometry_type* poly = new geometry_type(Polygon);
         int num_rings = read_integer();
@@ -486,7 +350,6 @@ private:
             capacity += num_points;
             CoordinateArray ar(num_points);
             read_coords(ar);
-            poly->set_capacity(capacity);
             poly->move_to(ar[0].x, ar[0].y);
             for (int j = 1; j < num_points; ++j)
             {
@@ -495,7 +358,7 @@ private:
         }
         paths.push_back(poly);
     }
-        
+
     void read_multipolygon(boost::ptr_vector<geometry_type> & paths)
     {
         int num_polys = read_integer();
@@ -504,33 +367,6 @@ private:
             pos_ += 5;
             read_polygon(paths);
         }
-    }
-    
-    void read_multipolygon_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* poly = new geometry_type(MultiPolygon);
-        int num_polys = read_integer();
-        unsigned capacity = 0;
-        for (int i = 0; i < num_polys; ++i)
-        {
-            pos_ += 5;
-            int num_rings = read_integer();
-            for (int r = 0; r < num_rings; ++r)
-            {
-                int num_points = read_integer();
-                capacity += num_points;
-                CoordinateArray ar(num_points);
-                read_coords(ar);
-                poly->set_capacity(capacity);
-                poly->move_to(ar[0].x, ar[0].y);
-                for (int j = 1; j < num_points; ++j)
-                {
-                    poly->line_to(ar[j].x, ar[j].y);
-                }
-                poly->line_to(ar[0].x, ar[0].y);
-            }
-        }
-        paths.push_back(poly);
     }
 
     void read_polygon_xyz(boost::ptr_vector<geometry_type> & paths)
@@ -544,7 +380,6 @@ private:
             capacity += num_points;
             CoordinateArray ar(num_points);
             read_coords_xyz(ar);
-            poly->set_capacity(capacity);
             poly->move_to(ar[0].x, ar[0].y);
             for (int j = 1; j < num_points; ++j)
             {
@@ -564,34 +399,6 @@ private:
         }
     }
 
-    void read_multipolygon_xyz_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        geometry_type* poly = new geometry_type(MultiPolygon);
-        int num_polys = read_integer();
-        unsigned capacity = 0;
-        for (int i = 0; i < num_polys; ++i)
-        {
-            pos_ += 5;
-            int num_rings = read_integer();
-            for (int r = 0; r < num_rings; ++r)
-            {
-                int num_points = read_integer();
-                capacity += num_points;
-                CoordinateArray ar(num_points);
-                read_coords_xyz(ar);
-                poly->set_capacity(capacity);
-                poly->move_to(ar[0].x, ar[0].y);
-                for (int j = 1; j < num_points; ++j)
-                {
-                    poly->line_to(ar[j].x, ar[j].y);
-                }
-                poly->line_to(ar[0].x, ar[0].y);
-            }
-        }
-        paths.push_back(poly);
-    }
-
-
     void read_collection(boost::ptr_vector<geometry_type> & paths)
     {
         int num_geometries = read_integer();
@@ -599,16 +406,6 @@ private:
         {
             pos_ += 1; // skip byte order
             read(paths);
-        }
-    }
-    
-    void read_collection_2(boost::ptr_vector<geometry_type> & paths)
-    {
-        int num_geometries = read_integer();
-        for (int i = 0; i < num_geometries; ++i)
-        {
-            pos_ += 1; // skip byte order
-            read_multi(paths);
         }
     }
 
@@ -645,17 +442,10 @@ private:
 void geometry_utils::from_wkb (boost::ptr_vector<geometry_type>& paths,
                                const char* wkb,
                                unsigned size,
-                               bool multiple_geometries,
-                               wkbFormat format) 
+                               wkbFormat format)
 {
     wkb_reader reader(wkb, size, format);
-    if (multiple_geometries)
-    {
-        return reader.read_multi(paths);
-    }
-    else
-    {
-        return reader.read(paths);
-    }
-}    
+    return reader.read(paths);
+}
+
 }

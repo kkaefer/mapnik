@@ -25,7 +25,6 @@
 
 // mapnik
 #include <mapnik/color.hpp>
-#include <mapnik/gamma.hpp>
 #include <mapnik/image_data.hpp>
 #include <mapnik/box2d.hpp>
 #include <mapnik/image_view.hpp>
@@ -164,7 +163,7 @@ public:
     }
 
     boost::optional<color> const& get_background() const;
-    
+
     void set_background(const color& c);
 
     void set_grayscale_to_alpha();
@@ -172,12 +171,12 @@ public:
     void set_color_to_alpha(color const& c);
 
     void set_alpha(float opacity);
-    
+
     inline const image_data_32& data() const
     {
         return data_;
     }
-    
+
     inline image_data_32& data()
     {
         return data_;
@@ -435,7 +434,7 @@ public:
                     unsigned r0 = rgba0 & 0xff ;
                     unsigned g0 = (rgba0 >> 8 ) & 0xff;
                     unsigned b0 = (rgba0 >> 16) & 0xff;
-                    
+
                     unsigned atmp = a1 + a0 - ((a1 * a0 + 255) >> 8);
                     if (atmp)
                     {
@@ -444,7 +443,7 @@ public:
                         b0 = byte((b1 * a1 + (b0 * a0) - ((b0 * a0 * a1 + 255) >> 8)) / atmp);
                     }
                     a0 = byte(atmp);
-                    
+
                     row_to[x] = (a0 << 24)| (b0 << 16) |  (g0 << 8) | (r0) ;
 #endif
                 }

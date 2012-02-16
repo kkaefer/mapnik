@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -30,8 +30,8 @@
 #include <boost/utility.hpp>
 
 namespace mapnik {
-    
-class memory_featureset : public Featureset, private boost::noncopyable
+
+class memory_featureset : public Featureset
 {
 public:
     memory_featureset(box2d<double> const& bbox, memory_datasource const& ds)
@@ -47,7 +47,7 @@ public:
     {}
 
     virtual ~memory_featureset() {}
-        
+
     feature_ptr next()
     {
         while (pos_ != end_)
@@ -64,14 +64,14 @@ public:
             }
             ++pos_;
         }
-           
+
         return feature_ptr();
     }
-        
+
 private:
     box2d<double> bbox_;
     std::vector<feature_ptr>::const_iterator pos_;
-    std::vector<feature_ptr>::const_iterator end_; 
+    std::vector<feature_ptr>::const_iterator end_;
 };
 }
 

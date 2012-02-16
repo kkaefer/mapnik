@@ -47,27 +47,6 @@
 
 namespace mapnik {
 
-/*
-struct blob_to_hex
-{
-    std::string operator() (const char* blob, unsigned size)
-    {
-        std::string buf;
-        buf.reserve(size*2);
-        std::ostringstream s(buf);
-        s.seekp(0);
-        char hex[3];
-        std::memset(hex,0,3);
-        for ( unsigned pos=0; pos < size; ++pos)
-        {
-            std::sprintf (hex, "%02X", int(blob[pos]) & 0xff);
-            s << hex;
-        }
-        return s.str();
-    }
-};
-*/
-
 template <typename Connection>
 void pgsql2sqlite(Connection conn,
                   std::string const& query,
@@ -163,8 +142,13 @@ void pgsql2sqlite(Connection conn,
 
     std::string output_table_insert_sql = "insert into " + output_table_name + " values (?";
 
+    context_ptr ctx = boost::make_shared<context_type>();
+
     for ( unsigned pos = 0; pos < num_fields ; ++pos)
     {
+        const char* field_name = cursor->getFieldName(pos);
+        ctx->push(field_name);
+
         if (pos > 0)
         {
             create_sql << ",";
@@ -296,8 +280,8 @@ void pgsql2sqlite(Connection conn,
                 {
                     if (oid == geometry_oid)
                     {
-                        mapnik::Feature feat(pkid);
-                        geometry_utils::from_wkb(feat.paths(),buf,size,false,wkbGeneric);
+                        mapnik::Feature feat(ctx,pkid);
+                        geometry_utils::from_wkb(feat.paths(),buf,size,wkbGeneric);
                         if (feat.num_geometries() > 0)
                         {
                             geometry_type const& geom=feat.get_geometry(0);
@@ -316,8 +300,6 @@ void pgsql2sqlite(Connection conn,
                                 empty_geom = false;
                             }
                         }
-
-                        //output_rec.push_back(sqlite::value_type("X'" + hex(buf,size) + "'"));
                         output_rec.push_back(sqlite::blob(buf,size));
                     }
                     else

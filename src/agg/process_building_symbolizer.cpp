@@ -25,6 +25,7 @@
 #include <mapnik/agg_renderer.hpp>
 #include <mapnik/agg_rasterizer.hpp>
 #include <mapnik/segment.hpp>
+#include <mapnik/expression_evaluator.hpp>
 
 // boost
 #include <boost/scoped_ptr.hpp>
@@ -38,16 +39,15 @@
 #include "agg_renderer_scanline.h"
 #include "agg_conv_stroke.h"
 
-namespace mapnik 
+namespace mapnik
 {
 
 template <typename T>
 void agg_renderer<T>::process(building_symbolizer const& sym,
-                              Feature const& feature,
+                              mapnik::feature_ptr const& feature,
                               proj_transform const& prj_trans)
 {
-    typedef  coord_transform2<CoordTransform,geometry_type> path_type;
-    typedef  coord_transform3<CoordTransform,geometry_type> path_type_roof;
+    typedef coord_transform2<CoordTransform,geometry_type> path_type;
     typedef agg::renderer_base<agg::pixfmt_rgba32_plain> ren_base;
     typedef agg::renderer_scanline_aa_solid<ren_base> renderer;
 
@@ -64,13 +64,19 @@ void agg_renderer<T>::process(building_symbolizer const& sym,
     agg::scanline_u8 sl;
 
     ras_ptr->reset();
-    ras_ptr->gamma(agg::gamma_linear());
-    
-    double height = sym.height() * scale_factor_;
-    
-    for (unsigned i=0;i<feature.num_geometries();++i)
+    ras_ptr->gamma(agg::gamma_power());
+
+    double height = 0.0;
+    expression_ptr height_expr = sym.height();
+    if (height_expr)
     {
-        geometry_type const& geom = feature.get_geometry(i);
+        value_type result = boost::apply_visitor(evaluate<Feature,value_type>(*feature), *height_expr);
+        height = result.to_double() * scale_factor_;
+    }
+
+    for (unsigned i=0;i<feature->num_geometries();++i)
+    {
+        geometry_type const& geom = feature->get_geometry(i);
         if (geom.num_points() > 2)
         {
             boost::scoped_ptr<geometry_type> frame(new geometry_type(LineString));
@@ -78,6 +84,8 @@ void agg_renderer<T>::process(building_symbolizer const& sym,
             std::deque<segment_t> face_segments;
             double x0(0);
             double y0(0);
+
+            geom.rewind(0);
             unsigned cm = geom.vertex(&x0,&y0);
             for (unsigned j=1;j<geom.num_points();++j)
             {
@@ -93,7 +101,7 @@ void agg_renderer<T>::process(building_symbolizer const& sym,
                     frame->line_to(x,y);
                     face_segments.push_back(segment_t(x0,y0,x,y));
                 }
-                
+
                 x0 = x;
                 y0 = y;
             }
@@ -133,6 +141,7 @@ void agg_renderer<T>::process(building_symbolizer const& sym,
                     roof->line_to(x,y+height);
                 }
             }
+
             path_type path(t_,*frame,prj_trans);
             agg::conv_stroke<path_type> stroke(path);
             ras_ptr->add_path(stroke);
@@ -149,7 +158,7 @@ void agg_renderer<T>::process(building_symbolizer const& sym,
 }
 
 template void agg_renderer<image_32>::process(building_symbolizer const&,
-                                              Feature const&,
+                                              mapnik::feature_ptr const&,
                                               proj_transform const&);
 
 }

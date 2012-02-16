@@ -94,7 +94,6 @@ occi_datasource::occi_datasource(parameters const& params, bool bind)
         table_ = *table;
     }
 
-    multiple_geometries_ = *params_.get<mapnik::boolean>("multiple_geometries",false);
     use_spatial_index_ = *params_.get<mapnik::boolean>("use_spatial_index",true);
     use_connection_pool_ = *params_.get<mapnik::boolean>("use_connection_pool",true);
 
@@ -352,7 +351,7 @@ std::string occi_datasource::name()
     return "occi";
 }
 
-int occi_datasource::type() const
+mapnik::datasource::datasource_t occi_datasource::type() const
 {
     return type_;
 }
@@ -475,6 +474,14 @@ box2d<double> occi_datasource::envelope() const
     return extent_;
 }
 
+
+boost::optional<mapnik::datasource::geometry_t> occi_datasource::get_geometry_type() const
+{
+    // FIXME
+    //if (! is_bound_) bind();
+    return boost::optional<mapnik::datasource::geometry_t>();
+}
+
 layer_descriptor occi_datasource::get_descriptor() const
 {
     if (! is_bound_) bind();
@@ -493,10 +500,11 @@ featureset_ptr occi_datasource::features(query const& q) const
     std::set<std::string> const& props = q.property_names();
     std::set<std::string>::const_iterator pos = props.begin();
     std::set<std::string>::const_iterator end = props.end();
-    while (pos != end)
+    mapnik::context_ptr ctx = boost::make_shared<mapnik::context_type>();
+    for ( ;pos != end;++pos)
     {
         s << ", " << *pos;
-        ++pos;
+        ctx->push(*pos);
     }
 
     s << " FROM ";
@@ -558,12 +566,11 @@ featureset_ptr occi_datasource::features(query const& q) const
 
     return boost::make_shared<occi_featureset>(pool_,
                                                conn_,
+                                               ctx,
                                                s.str(),
                                                desc_.get_encoding(),
-                                               multiple_geometries_,
                                                use_connection_pool_,
-                                               row_prefetch_,
-                                               props.size());
+                                               row_prefetch_);
 }
 
 featureset_ptr occi_datasource::features_at_point(coord2d const& pt) const
@@ -574,12 +581,12 @@ featureset_ptr occi_datasource::features_at_point(coord2d const& pt) const
     s << "SELECT " << geometry_field_;
     std::vector<attribute_descriptor>::const_iterator itr = desc_.get_descriptors().begin();
     std::vector<attribute_descriptor>::const_iterator end = desc_.get_descriptors().end();
-    unsigned size = 0;
+    mapnik::context_ptr ctx = boost::make_shared<mapnik::context_type>();
     while (itr != end)
     {
         s << ", " << itr->get_name();
+        ctx->push(itr->get_name());
         ++itr;
-        ++size;
     }
 
     s << " FROM ";
@@ -640,10 +647,9 @@ featureset_ptr occi_datasource::features_at_point(coord2d const& pt) const
 
     return boost::make_shared<occi_featureset>(pool_,
                                                conn_,
+                                               ctx,
                                                s.str(),
                                                desc_.get_encoding(),
-                                               multiple_geometries_,
                                                use_connection_pool_,
-                                               row_prefetch_,
-                                               size);
+                                               row_prefetch_);
 }

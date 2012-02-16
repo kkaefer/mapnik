@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -37,11 +37,11 @@ public:
         what_( what )
     {
     }
-    virtual ~config_error() throw() {};
+    virtual ~config_error() throw() {}
 
     virtual const char * what() const throw()
     {
-        return what_.c_str();    
+        return what_.c_str();
     }
 
     void append_context(const std::string & ctx) const

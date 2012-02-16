@@ -57,16 +57,14 @@ using oracle::occi::Blob;
 
 occi_featureset::occi_featureset(StatelessConnectionPool* pool,
                                  Connection* conn,
+                                 mapnik::context_ptr const& ctx,
                                  std::string const& sqlstring,
                                  std::string const& encoding,
-                                 bool multiple_geometries,
                                  bool use_connection_pool,
-                                 unsigned prefetch_rows,
-                                 unsigned num_attrs)
+                                 unsigned prefetch_rows)
     : tr_(new transcoder(encoding)),
-      multiple_geometries_(multiple_geometries),
-      num_attrs_(num_attrs),
-      feature_id_(1)
+      feature_id_(1),
+      ctx_(ctx)
 {
     if (use_connection_pool)
     {
@@ -95,13 +93,13 @@ feature_ptr occi_featureset::next()
 {
     if (rs_ && rs_->next())
     {
-        feature_ptr feature(feature_factory::create(feature_id_));
+        feature_ptr feature(feature_factory::create(ctx_,feature_id_));
         ++feature_id_;
 
         boost::scoped_ptr<SDOGeometry> geom(dynamic_cast<SDOGeometry*>(rs_->getObject(1)));
         if (geom.get())
         {
-            convert_geometry(geom.get(), feature, multiple_geometries_);
+            convert_geometry(geom.get(), feature);
         }
 
         std::vector<MetaData> listOfColumns = rs_->getColumnListMetaData();
@@ -127,7 +125,7 @@ feature_ptr occi_featureset::next()
             case oracle::occi::OCCIINT:
             case oracle::occi::OCCIUNSIGNED_INT:
             case oracle::occi::OCCIROWID:
-                boost::put(*feature,fld_name,rs_->getInt (i + 1));
+                feature->put(fld_name,rs_->getInt (i + 1));
                 break;
             case oracle::occi::OCCIFLOAT:
             case oracle::occi::OCCIBFLOAT:
@@ -135,7 +133,7 @@ feature_ptr occi_featureset::next()
             case oracle::occi::OCCIBDOUBLE:
             case oracle::occi::OCCINUMBER:
             case oracle::occi::OCCI_SQLT_NUM:
-                boost::put(*feature,fld_name,rs_->getDouble (i + 1));
+                feature->put(fld_name,rs_->getDouble (i + 1));
                 break;
             case oracle::occi::OCCICHAR:
             case oracle::occi::OCCISTRING:
@@ -149,7 +147,7 @@ feature_ptr occi_featureset::next()
             case oracle::occi::OCCI_SQLT_VNU:
             case oracle::occi::OCCI_SQLT_VBI:
             case oracle::occi::OCCI_SQLT_VST:
-                boost::put(*feature,fld_name,(UnicodeString) tr_->transcode (rs_->getString (i + 1).c_str()));
+                feature->put(fld_name,(UnicodeString) tr_->transcode (rs_->getString (i + 1).c_str()));
                 break;
             case oracle::occi::OCCIDATE:
             case oracle::occi::OCCITIMESTAMP:
@@ -204,7 +202,7 @@ feature_ptr occi_featureset::next()
 }
 
 
-void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, bool multiple_geometries)
+void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature)
 {
     int gtype = (int)geom->getSdo_gtype();
     int dimensions = gtype / 1000;
@@ -248,16 +246,13 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
         {
             const bool is_single_geom = true;
             const bool is_point_type = false;
-            const bool multiple_geoms = false;
-
             convert_ordinates(feature,
                               mapnik::LineString,
                               elem_info,
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geoms);
+                              is_point_type);
         }
     }
     break;
@@ -267,16 +262,13 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
         {
             const bool is_single_geom = true;
             const bool is_point_type = false;
-            const bool multiple_geoms = false;
-
             convert_ordinates(feature,
                               mapnik::Polygon,
                               elem_info,
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geoms);
+                              is_point_type);
         }
     }
     break;
@@ -286,19 +278,15 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
         {
             const bool is_single_geom = false;
             const bool is_point_type = true;
-            const bool multiple_geoms = true;
 
-            // Todo - force using true as multiple_geometries until we have proper multipoint handling
-            // http://trac.mapnik.org/ticket/458
-
+            // FIXME :http://trac.mapnik.org/ticket/458
             convert_ordinates(feature,
                               mapnik::Point,
                               elem_info,
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geoms);
+                              is_point_type);
         }
     }
     break;
@@ -315,8 +303,7 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geometries);
+                              is_point_type);
         }
     }
     break;
@@ -333,8 +320,7 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geometries);
+                              is_point_type);
         }
 
     }
@@ -352,8 +338,7 @@ void occi_featureset::convert_geometry(SDOGeometry* geom, feature_ptr feature, b
                               ordinates,
                               dimensions,
                               is_single_geom,
-                              is_point_type,
-                              multiple_geometries);
+                              is_point_type);
         }
     }
     break;
@@ -374,8 +359,7 @@ void occi_featureset::convert_ordinates(mapnik::feature_ptr feature,
                                         const std::vector<Number>& ordinates,
                                         const int dimensions,
                                         const bool is_single_geom,
-                                        const bool is_point_geom,
-                                        const bool multiple_geometries)
+                                        const bool is_point_geom)
 {
     const int elem_size = elem_info.size();
     const int ord_size = ordinates.size();
@@ -388,9 +372,8 @@ void occi_featureset::convert_ordinates(mapnik::feature_ptr feature,
 
         if (! is_single_geom && elem_size > SDO_ELEM_INFO_SIZE)
         {
-            geometry_type* geom = multiple_geometries ? 0 : new geometry_type(geom_type);
-            if (geom) geom->set_capacity(ord_size);
-
+            geometry_type* geom = new geometry_type(geom_type);
+            
             for (int i = SDO_ELEM_INFO_SIZE; i < elem_size; i+=3)
             {
                 int next_offset = elem_info[i];
@@ -444,17 +427,12 @@ void occi_featureset::convert_ordinates(mapnik::feature_ptr feature,
 
                 if (is_linear_element)
                 {
-                    if (multiple_geometries)
+                    if (geom)
                     {
-                        if (geom)
-                        {
-                            feature->add_geometry(geom);
-                        }
-
-                        geom = new geometry_type(gtype);
-                        geom->set_capacity((next_offset - 1) - (offset - 1 - dimensions));
+                        feature->add_geometry(geom);
                     }
 
+                    geom = new geometry_type(gtype);
                     fill_geometry_type(geom,
                                        offset - 1,
                                        next_offset - 1,
@@ -477,8 +455,6 @@ void occi_featureset::convert_ordinates(mapnik::feature_ptr feature,
         else
         {
             geometry_type * geom = new geometry_type(geom_type);
-            geom->set_capacity(ord_size);
-
             fill_geometry_type(geom,
                                offset - 1,
                                ord_size,

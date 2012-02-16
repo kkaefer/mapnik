@@ -52,19 +52,19 @@ using mapnik::transcoder;
 using mapnik::feature_factory;
 
 template <typename filterT>
-ogr_index_featureset<filterT>::ogr_index_featureset(OGRDataSource & dataset,
+ogr_index_featureset<filterT>::ogr_index_featureset(mapnik::context_ptr const & ctx,
+                                                    OGRDataSource & dataset,
                                                     OGRLayer & layer,
-                                                    const filterT& filter,
-                                                    const std::string& index_file,
-                                                    const std::string& encoding,
-                                                    const bool multiple_geometries)
-    : dataset_(dataset),
+                                                    filterT const& filter,
+                                                    std::string const& index_file,
+                                                    std::string const& encoding)
+    : ctx_(ctx),
+      dataset_(dataset),
       layer_(layer),
       layerdef_(layer.GetLayerDefn()),
       filter_(filter),
       tr_(new transcoder(encoding)),
-      fidcolumn_(layer_.GetFIDColumn()),
-      multiple_geometries_(multiple_geometries)
+      fidcolumn_(layer_.GetFIDColumn())
 {
 
     boost::optional<mapnik::mapped_region_ptr> memory = mapnik::mapped_memory_cache::find(index_file.c_str(),true);
@@ -103,12 +103,12 @@ feature_ptr ogr_index_featureset<filterT>::next()
             // ogr feature ids start at 0, so add one to stay
             // consistent with other mapnik datasources that start at 1
             int feature_id = ((*feat)->GetFID() + 1);
-            feature_ptr feature(feature_factory::create(feature_id));
+            feature_ptr feature(feature_factory::create(ctx_,feature_id));
 
             OGRGeometry* geom=(*feat)->GetGeometryRef();
             if (geom && !geom->IsEmpty())
             {
-                ogr_converter::convert_geometry (geom, feature, multiple_geometries_);
+                ogr_converter::convert_geometry (geom, feature);
             }
 #ifdef MAPNIK_DEBUG
             else
@@ -128,13 +128,13 @@ feature_ptr ogr_index_featureset<filterT>::next()
                 {
                 case OFTInteger:
                 {
-                    boost::put(*feature,fld_name,(*feat)->GetFieldAsInteger (i));
+                    feature->put(fld_name,(*feat)->GetFieldAsInteger (i));
                     break;
                 }
 
                 case OFTReal:
                 {
-                    boost::put(*feature,fld_name,(*feat)->GetFieldAsDouble (i));
+                    feature->put(fld_name,(*feat)->GetFieldAsDouble (i));
                     break;
                 }
 
@@ -142,7 +142,7 @@ feature_ptr ogr_index_featureset<filterT>::next()
                 case OFTWideString:     // deprecated !
                 {
                     UnicodeString ustr = tr_->transcode((*feat)->GetFieldAsString (i));
-                    boost::put(*feature,fld_name,ustr);
+                    feature->put(fld_name,ustr);
                     break;
                 }
 
@@ -162,7 +162,7 @@ feature_ptr ogr_index_featureset<filterT>::next()
 #ifdef MAPNIK_DEBUG
                     std::clog << "OGR Plugin: unhandled type_oid=" << type_oid << std::endl;
 #endif
-                    //boost::put(*feature,name,feat->GetFieldAsBinary (i, size));
+                    //feature->put(name,feat->GetFieldAsBinary (i, size));
                     break;
                 }
 

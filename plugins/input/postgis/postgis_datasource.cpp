@@ -87,8 +87,6 @@ postgis_datasource::postgis_datasource(parameters const& params, bool bind)
 {
     if (table_.empty()) throw mapnik::datasource_exception("Postgis Plugin: missing <table> parameter");
 
-    multiple_geometries_ = *params_.get<mapnik::boolean>("multiple_geometries",false);
-
     boost::optional<std::string> ext  = params_.get<std::string>("extent");
     if (ext) extent_initialized_ = extent_.from_string(*ext);
 
@@ -108,14 +106,14 @@ void postgis_datasource::bind() const
     ConnectionManager *mgr=ConnectionManager::instance();
     mgr->registerPool(creator_, *initial_size, *max_size);
 
+    std::string g_type;
+
     shared_ptr<Pool<Connection,ConnectionCreator> > pool=mgr->getPool(creator_.id());
     if (pool)
     {
         shared_ptr<Connection> conn = pool->borrowObject();
         if (conn && conn->isOK())
         {
-
-            is_bound_ = true;
 
             PoolGuard<shared_ptr<Connection>,
                 shared_ptr<Pool<Connection,ConnectionCreator> > > guard(conn,pool);
@@ -147,14 +145,20 @@ void postgis_datasource::bind() const
             if (!geometryColumn_.length() > 0 || srid_ == 0)
             {
                 std::ostringstream s;
-                s << "SELECT f_geometry_column, srid FROM ";
-                s << GEOMETRY_COLUMNS <<" WHERE f_table_name='" << mapnik::sql_utils::unquote_double(geometry_table_) <<"'";
+                s << "SELECT f_geometry_column, srid FROM "
+                  << GEOMETRY_COLUMNS <<" WHERE f_table_name='"
+                  << mapnik::sql_utils::unquote_double(geometry_table_)
+                  << "'";
 
                 if (schema_.length() > 0)
-                    s << " AND f_table_schema='" << mapnik::sql_utils::unquote_double(schema_) << "'";
+                    s << " AND f_table_schema='"
+                      << mapnik::sql_utils::unquote_double(schema_)
+                      << "'";
 
                 if (geometry_field_.length() > 0)
-                    s << " AND f_geometry_column='" << mapnik::sql_utils::unquote_double(geometry_field_) << "'";
+                    s << " AND f_geometry_column='"
+                      << mapnik::sql_utils::unquote_double(geometry_field_)
+                      << "'";
 
                 /*
                   if (show_queries_)
@@ -163,7 +167,7 @@ void postgis_datasource::bind() const
                   }
                 */
 
-                shared_ptr<ResultSet> rs=conn->executeQuery(s.str());
+                shared_ptr<ResultSet> rs = conn->executeQuery(s.str());
                 if (rs->next())
                 {
                     geometryColumn_ = rs->getValue("f_geometry_column");
@@ -198,7 +202,7 @@ void postgis_datasource::bind() const
                       }
                     */
 
-                    shared_ptr<ResultSet> rs=conn->executeQuery(s.str());
+                    shared_ptr<ResultSet> rs = conn->executeQuery(s.str());
                     if (rs->next())
                     {
                         try
@@ -240,7 +244,7 @@ void postgis_datasource::bind() const
             */
 
 
-            shared_ptr<ResultSet> rs=conn->executeQuery(s.str());
+            shared_ptr<ResultSet> rs = conn->executeQuery(s.str());
             int count = rs->getNumFields();
             bool found_key_field = false;
             for (int i=0;i<count;++i)
@@ -328,7 +332,11 @@ void postgis_datasource::bind() const
                     }
                 }
             }
+
             rs->close();
+
+            is_bound_ = true;
+
         }
     }
 }
@@ -338,7 +346,7 @@ std::string postgis_datasource::name()
     return "postgis";
 }
 
-int postgis_datasource::type() const
+mapnik::datasource::datasource_t postgis_datasource::type() const
 {
     return type_;
 }
@@ -354,7 +362,7 @@ std::string postgis_datasource::sql_bbox(box2d<double> const& env) const
 {
     std::ostringstream b;
     if (srid_ > 0)
-        b << "SetSRID(";
+        b << "ST_SetSRID(";
     b << "'BOX3D(";
     b << std::setprecision(16);
     b << env.minx() << " " << env.miny() << ",";
@@ -382,7 +390,7 @@ std::string postgis_datasource::populate_tokens(const std::string& sql) const
     return populated_sql;
 }
 
-std::string postgis_datasource::populate_tokens(const std::string& sql, double const& scale_denom, box2d<double> const& env) const
+std::string postgis_datasource::populate_tokens(const std::string& sql, double scale_denom, box2d<double> const& env) const
 {
     std::string populated_sql = sql;
     std::string box = sql_bbox(env);
@@ -436,6 +444,7 @@ boost::shared_ptr<IResultSet> postgis_datasource::get_resultset(boost::shared_pt
         */
 
         if (!conn->execute(csql.str()))
+            // TODO - better error
             throw mapnik::datasource_exception("Postgis Plugin: error creating cursor for data select." );
 
         return boost::make_shared<CursorResultSet>(conn, cursor_name, cursor_fetch_size_);
@@ -493,16 +502,22 @@ featureset_ptr postgis_datasource::features(const query& q) const
             std::ostringstream s;
             s << "SELECT ST_AsBinary(\"" << geometryColumn_ << "\") AS geom";
 
+            mapnik::context_ptr ctx = boost::make_shared<mapnik::context_type>();
+
             if (!key_field_.empty())
+            {
                 mapnik::sql_utils::quote_attr(s,key_field_);
+                ctx->push(key_field_);
+            }
 
             std::set<std::string> const& props=q.property_names();
             std::set<std::string>::const_iterator pos=props.begin();
             std::set<std::string>::const_iterator end=props.end();
-            while (pos != end)
+
+            for ( ;pos != end;++pos)
             {
                 mapnik::sql_utils::quote_attr(s,*pos);
-                ++pos;
+                ctx->push(*pos);
             }
 
             std::string table_with_bbox = populate_tokens(table_,scale_denom,box);
@@ -514,10 +529,7 @@ featureset_ptr postgis_datasource::features(const query& q) const
             }
 
             boost::shared_ptr<IResultSet> rs = get_resultset(conn, s.str());
-            unsigned num_attr = props.size();
-            if (!key_field_.empty())
-                ++num_attr;
-            return boost::make_shared<postgis_featureset>(rs,desc_.get_encoding(),multiple_geometries_,!key_field_.empty(),num_attr);
+            return boost::make_shared<postgis_featureset>(rs, ctx, desc_.get_encoding(), !key_field_.empty());
         }
         else
         {
@@ -562,17 +574,21 @@ featureset_ptr postgis_datasource::features_at_point(coord2d const& pt) const
             std::ostringstream s;
             s << "SELECT ST_AsBinary(\"" << geometryColumn_ << "\") AS geom";
 
+            mapnik::context_ptr ctx = boost::make_shared<mapnik::context_type>();
+
             if (!key_field_.empty())
+            {
                 mapnik::sql_utils::quote_attr(s,key_field_);
+                ctx->push(key_field_);
+            }
 
             std::vector<attribute_descriptor>::const_iterator itr = desc_.get_descriptors().begin();
             std::vector<attribute_descriptor>::const_iterator end = desc_.get_descriptors().end();
-            unsigned size=0;
-            while (itr != end)
+
+            for ( ; itr != end; ++itr)
             {
                 mapnik::sql_utils::quote_attr(s,itr->get_name());
-                ++itr;
-                ++size;
+                ctx->push(itr->get_name());
             }
 
             box2d<double> box(pt.x,pt.y,pt.x,pt.y);
@@ -585,7 +601,7 @@ featureset_ptr postgis_datasource::features_at_point(coord2d const& pt) const
             }
 
             boost::shared_ptr<IResultSet> rs = get_resultset(conn, s.str());
-            return boost::make_shared<postgis_featureset>(rs,desc_.get_encoding(),multiple_geometries_,!key_field_.empty(),size);
+            return boost::make_shared<postgis_featureset>(rs, ctx, desc_.get_encoding(), !key_field_.empty());
         }
     }
     return featureset_ptr();
@@ -686,6 +702,118 @@ box2d<double> postgis_datasource::envelope() const
         }
     }
     return extent_;
+}
+
+boost::optional<mapnik::datasource::geometry_t> postgis_datasource::get_geometry_type() const
+{
+    if (! is_bound_) bind();
+    boost::optional<mapnik::datasource::geometry_t> result;
+
+    ConnectionManager *mgr=ConnectionManager::instance();
+    shared_ptr<Pool<Connection,ConnectionCreator> > pool=mgr->getPool(creator_.id());
+    if (pool)
+    {
+        shared_ptr<Connection> conn = pool->borrowObject();
+        if (conn && conn->isOK())
+        {
+            PoolGuard<shared_ptr<Connection>,shared_ptr<Pool<Connection,ConnectionCreator> > > guard(conn,pool);
+
+            std::ostringstream s;
+            std::string g_type;
+
+            s << "SELECT lower(type) as type FROM "
+              << GEOMETRY_COLUMNS <<" WHERE f_table_name='"
+              << mapnik::sql_utils::unquote_double(geometry_table_)
+              << "'";
+
+            if (schema_.length() > 0)
+                s << " AND f_table_schema='"
+                  << mapnik::sql_utils::unquote_double(schema_)
+                  << "'";
+
+            if (geometry_field_.length() > 0)
+                s << " AND f_geometry_column='"
+                  << mapnik::sql_utils::unquote_double(geometry_field_)
+                  << "'";
+
+            shared_ptr<ResultSet> rs = conn->executeQuery(s.str());
+            if (rs->next())
+            {
+                g_type = rs->getValue("type");
+                if (boost::algorithm::contains(g_type,"line"))
+                {
+                    result.reset(mapnik::datasource::LineString);
+                    return result;
+                }
+                else if (boost::algorithm::contains(g_type,"point"))
+                {
+                    result.reset(mapnik::datasource::Point);
+                    return result;
+                }
+                else if (boost::algorithm::contains(g_type,"polygon"))
+                {
+                    result.reset(mapnik::datasource::Polygon);
+                    return result;
+                }
+                else // geometry
+                {
+                    result.reset(mapnik::datasource::Collection);
+                    return result;
+                }
+            }
+
+            // fallback to querying first several features
+            if (g_type.empty() && !geometryColumn_.empty())
+            {
+                s.str("");
+                std::string prev_type("");
+                s << "SELECT ST_GeometryType(\""
+                  << geometryColumn_ << "\") AS geom"
+                  << " FROM " << populate_tokens(table_);
+                if (row_limit_ > 0 && row_limit_ < 5)
+                {
+                    s << " LIMIT " << row_limit_;
+                }
+                else
+                {
+                    s << " LIMIT 5";
+                }
+                shared_ptr<ResultSet> rs = conn->executeQuery(s.str());
+                while (rs->next() && !rs->isNull(0))
+                {
+                    const char* data = rs->getValue(0);
+                    if (boost::algorithm::icontains(data,"line"))
+                    {
+                        g_type = "linestring";
+                        result.reset(mapnik::datasource::LineString);
+                    }
+                    else if (boost::algorithm::icontains(data,"point"))
+                    {
+                        g_type = "point";
+                        result.reset(mapnik::datasource::Point);
+                    }
+                    else if (boost::algorithm::icontains(data,"polygon"))
+                    {
+                        g_type = "polygon";
+                        result.reset(mapnik::datasource::Polygon);
+                    }
+                    else // geometry
+                    {
+                        result.reset(mapnik::datasource::Collection);
+                        return result;
+                    }
+                    if (!prev_type.empty() && g_type != prev_type)
+                    {
+                        result.reset(mapnik::datasource::Collection);
+                        return result;
+                    }
+                    prev_type = g_type;
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 postgis_datasource::~postgis_datasource()

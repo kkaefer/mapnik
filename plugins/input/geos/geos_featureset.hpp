@@ -44,8 +44,7 @@ public:
                     int identifier,
                     const std::string& field,
                     const std::string& field_name,
-                    const std::string& encoding,
-                    bool multiple_geometries);
+                    const std::string& encoding);
     virtual ~geos_featureset();
     mapnik::feature_ptr next();
 
@@ -56,8 +55,8 @@ private:
     int identifier_;
     std::string field_;
     std::string field_name_;
-    bool multiple_geometries_;
     bool already_rendered_;
+    mapnik::context_ptr ctx_;
 
     geos_featureset(const geos_featureset&);
     const geos_featureset& operator=(const geos_featureset&);

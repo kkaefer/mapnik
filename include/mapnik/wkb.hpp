@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -27,6 +27,8 @@
 #include <mapnik/geometry.hpp>
 #include <mapnik/ctrans.hpp>
 #include <mapnik/feature.hpp>
+// boost
+#include <boost/utility.hpp>
 
 namespace mapnik
 {
@@ -34,12 +36,12 @@ namespace mapnik
 /*!
  * From wikipedia.com:
  *
- * Well-known text (WKT) is a text markup language for representing vector 
- * geometry objects on a map, spatial reference systems of spatial objects 
+ * Well-known text (WKT) is a text markup language for representing vector
+ * geometry objects on a map, spatial reference systems of spatial objects
  * and transformations between spatial reference systems. A binary equivalent,
- * known as well-known binary (WKB) is used to transfer and store the same 
- * information on databases, such as PostGIS. The formats are regulated by 
- * the Open Geospatial Consortium (OGC) and described in their Simple Feature 
+ * known as well-known binary (WKB) is used to transfer and store the same
+ * information on databases, such as PostGIS. The formats are regulated by
+ * the Open Geospatial Consortium (OGC) and described in their Simple Feature
  * Access and Coordinate Transformation Service specifications.
  */
 enum wkbFormat
@@ -49,19 +51,14 @@ enum wkbFormat
     wkbSpatiaLite=3
 };
 
-class MAPNIK_DECL geometry_utils 
+class MAPNIK_DECL geometry_utils : private boost::noncopyable
 {
 public:
 
     static void from_wkb (boost::ptr_vector<geometry_type>& paths,
                           const char* wkb,
                           unsigned size,
-                          bool multiple_geometries = false,
                           wkbFormat format = wkbGeneric);
-private:
-    geometry_utils();
-    geometry_utils(geometry_utils const&);
-    geometry_utils& operator=(const geometry_utils&);
 };
 }
 

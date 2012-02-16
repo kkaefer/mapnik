@@ -53,17 +53,17 @@ geos_featureset::geos_featureset(GEOSGeometry* geometry,
                                  int identifier,
                                  const std::string& field,
                                  const std::string& field_name,
-                                 const std::string& encoding,
-                                 bool multiple_geometries)
+                                 const std::string& encoding)
     : geometry_(geometry),
       tr_(new transcoder(encoding)),
       extent_(extent),
       identifier_(identifier),
       field_(field),
       field_name_(field_name),
-      multiple_geometries_(multiple_geometries),
-      already_rendered_(false)
+      already_rendered_(false),
+      ctx_(boost::make_shared<mapnik::context_type>())
 {
+    ctx_->push(field_name);
 }
 
 geos_featureset::~geos_featureset()
@@ -116,16 +116,14 @@ feature_ptr geos_featureset::next()
                 geos_wkb_ptr wkb(geometry_);
                 if (wkb.is_valid())
                 {
-                    feature_ptr feature(feature_factory::create(identifier_));
+                    feature_ptr feature(feature_factory::create(ctx_,identifier_));
 
                     geometry_utils::from_wkb(feature->paths(),
                                              wkb.data(),
-                                             wkb.size(),
-                                             multiple_geometries_);
-
+                                             wkb.size());
                     if (field_ != "")
                     {
-                        boost::put(*feature, field_name_, tr_->transcode(field_.c_str()));
+                        feature->put(field_name_, tr_->transcode(field_.c_str()));
                     }
 
                     return feature;

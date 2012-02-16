@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -26,98 +26,32 @@
 // mapnik
 #include <mapnik/color.hpp>
 #include <mapnik/symbolizer.hpp>
+#include <mapnik/enumeration.hpp>
+#include <mapnik/gamma_method.hpp>
 
-namespace mapnik 
+namespace mapnik
 {
+
 struct MAPNIK_DECL polygon_symbolizer : public symbolizer_base
 {
-    explicit polygon_symbolizer() 
-        : symbolizer_base(),
-        fill_(color(128,128,128)),
-        opacity_(1.0),
-        gamma_(1.0) {}
-
-    polygon_symbolizer(color const& fill)
-        : symbolizer_base(),
-        fill_(fill),
-        opacity_(1.0),
-        gamma_(1.0) {}
-        
-    color const& get_fill() const
-    {
-        return fill_;
-    }
-    void set_fill(color const& fill)
-    {
-        fill_ = fill;
-    }
-    void set_opacity(double opacity)
-    {
-        opacity_ = opacity;
-    }
-    double get_opacity() const
-    {
-        return opacity_;
-    }
-    void set_gamma(double gamma)
-    {
-        gamma_ = gamma;
-    }
-    double get_gamma() const
-    {
-        return gamma_;
-    }
+    polygon_symbolizer();
+    polygon_symbolizer(color const& fill);
+    color const& get_fill() const;
+    void set_fill(color const& fill);
+    void set_opacity(double opacity);
+    double get_opacity() const;
+    void set_gamma(double gamma);
+    double get_gamma() const;
+    void set_gamma_method(gamma_method_e gamma_method);
+    gamma_method_e get_gamma_method() const;
 
 private:
     color fill_;
     double opacity_;
     double gamma_;
-}; 
-   
-struct MAPNIK_DECL building_symbolizer : public symbolizer_base
-{
-    explicit building_symbolizer() 
-        : symbolizer_base(),
-        fill_(color(128,128,128)),
-        height_(0.0),
-        opacity_(1.0)
-        {}
-       
-    building_symbolizer(color const& fill,double height)
-        : symbolizer_base(),
-        fill_(fill),
-        height_(height),
-        opacity_(1.0) {}
-       
-    color const& get_fill() const
-    {
-        return fill_;
-    }
-    void set_fill(color const& fill)
-    {
-        fill_ = fill;
-    }
-    double height() const
-    {
-        return height_;
-    }
-    void set_height(double height) 
-    {
-        height_=height;
-    }
-    void set_opacity(double opacity)
-    {
-        opacity_ = opacity;
-    }
-    double get_opacity() const
-    {
-        return opacity_;
-    }
-private:
-    color fill_;
-    double height_;
-    double opacity_;
-};  
+    gamma_method_e gamma_method_;
+};
+
 }
 
 #endif // MAPNIK_POLYGON_SYMBOLIZER_HPP

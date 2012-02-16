@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -34,11 +34,9 @@
 
 
 namespace mapnik
-{   
+{
 layer::layer(std::string const& name, std::string const& srs)
     : name_(name),
-      title_(""),
-      abstract_(""),
       srs_(srs),
       minZoom_(0),
       maxZoom_(std::numeric_limits<double>::max()),
@@ -46,12 +44,11 @@ layer::layer(std::string const& name, std::string const& srs)
       queryable_(false),
       clear_label_cache_(false),
       cache_features_(false),
+      group_by_(""),
       ds_() {}
-    
+
 layer::layer(const layer& rhs)
     : name_(rhs.name_),
-      title_(rhs.title_),
-      abstract_(rhs.abstract_),
       srs_(rhs.srs_),
       minZoom_(rhs.minZoom_),
       maxZoom_(rhs.maxZoom_),
@@ -59,9 +56,10 @@ layer::layer(const layer& rhs)
       queryable_(rhs.queryable_),
       clear_label_cache_(rhs.clear_label_cache_),
       cache_features_(rhs.cache_features_),
+      group_by_(rhs.group_by_),
       styles_(rhs.styles_),
       ds_(rhs.ds_) {}
-    
+
 layer& layer::operator=(const layer& rhs)
 {
     layer tmp(rhs);
@@ -73,12 +71,10 @@ bool layer::operator==(layer const& other) const
 {
     return (this == &other);
 }
-    
+
 void layer::swap(const layer& rhs)
 {
     name_=rhs.name_;
-    title_=rhs.title_;
-    abstract_=rhs.abstract_;
     srs_ = rhs.srs_;
     minZoom_=rhs.minZoom_;
     maxZoom_=rhs.maxZoom_;
@@ -86,62 +82,43 @@ void layer::swap(const layer& rhs)
     queryable_=rhs.queryable_;
     clear_label_cache_ = rhs.clear_label_cache_;
     cache_features_ = rhs.cache_features_;
+    group_by_ = rhs.group_by_;
     styles_=rhs.styles_;
     ds_=rhs.ds_;
 }
 
 layer::~layer() {}
-    
+
 void layer::set_name( std::string const& name)
 {
     name_ = name;
 }
- 
+
 std::string const& layer::name() const
 {
     return name_;
-}
-
-void layer::set_title( std::string const& title)
-{
-    title_ = title;
-}
- 
-std::string const& layer::title() const
-{
-    return title_;
-}
-    
-void layer::set_abstract( std::string const& abstract)
-{
-    abstract_ = abstract;
-}
- 
-std::string const& layer::abstract() const
-{
-    return abstract_;
 }
 
 void layer::set_srs(std::string const& srs)
 {
     srs_ = srs;
 }
-    
+
 std::string const& layer::srs() const
 {
     return srs_;
 }
-    
+
 void layer::add_style(std::string const& stylename)
 {
     styles_.push_back(stylename);
 }
-    
+
 std::vector<std::string> const& layer::styles() const
 {
     return styles_;
 }
-    
+
 std::vector<std::string> & layer::styles()
 {
     return styles_;
@@ -196,23 +173,23 @@ datasource_ptr layer::datasource() const
 {
     return ds_;
 }
-    
+
 void layer::set_datasource(datasource_ptr const& ds)
 {
     ds_ = ds;
 }
-    
+
 box2d<double> layer::envelope() const
 {
     if (ds_) return ds_->envelope();
     return box2d<double>();
 }
-    
+
 void layer::set_clear_label_cache(bool clear)
 {
     clear_label_cache_ = clear;
 }
-   
+
 bool layer::clear_label_cache() const
 {
     return clear_label_cache_;
@@ -226,6 +203,16 @@ void layer::set_cache_features(bool cache_features)
 bool layer::cache_features() const
 {
     return cache_features_;
+}
+
+void layer::set_group_by(std::string column)
+{
+    group_by_ = column;
+}
+
+std::string layer::group_by() const
+{
+    return group_by_;
 }
 
 }

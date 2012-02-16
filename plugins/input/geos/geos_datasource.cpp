@@ -98,8 +98,6 @@ geos_datasource::geos_datasource(parameters const& params, bool bind)
     if (! geometry) throw datasource_exception("missing <wkt> parameter");
     geometry_string_ = *geometry;
 
-    multiple_geometries_ = *params_.get<mapnik::boolean>("multiple_geometries",false);
-
     boost::optional<std::string> ext = params_.get<std::string>("extent");
     if (ext) extent_initialized_ = extent_.from_string(*ext);
 
@@ -227,7 +225,7 @@ std::string geos_datasource::name()
     return "geos";
 }
 
-int geos_datasource::type() const
+mapnik::datasource::datasource_t geos_datasource::type() const
 {
     return type_;
 }
@@ -237,6 +235,38 @@ box2d<double> geos_datasource::envelope() const
     if (! is_bound_) bind();
 
     return extent_;
+}
+
+boost::optional<mapnik::datasource::geometry_t> geos_datasource::get_geometry_type() const
+{
+    if (! is_bound_) bind();
+    boost::optional<mapnik::datasource::geometry_t> result;
+
+    // get geometry type
+    const int type = GEOSGeomTypeId(*geometry_);
+    switch (type)
+    {
+    case GEOS_POINT:
+    case GEOS_MULTIPOINT:
+        result.reset(mapnik::datasource::Point);
+        break;
+    case GEOS_LINESTRING:
+    case GEOS_LINEARRING:
+    case GEOS_MULTILINESTRING:
+        result.reset(mapnik::datasource::LineString);
+        break;
+    case GEOS_POLYGON:
+    case GEOS_MULTIPOLYGON:
+        result.reset(mapnik::datasource::Polygon);
+        break;
+    case GEOS_GEOMETRYCOLLECTION:
+        result.reset(mapnik::datasource::Collection);
+        break;
+    default:
+        break;
+    }
+
+    return result;
 }
 
 layer_descriptor geos_datasource::get_descriptor() const
@@ -270,8 +300,7 @@ featureset_ptr geos_datasource::features(query const& q) const
                                                geometry_id_,
                                                geometry_data_,
                                                geometry_data_name_,
-                                               desc_.get_encoding(),
-                                               multiple_geometries_);
+                                               desc_.get_encoding());
 }
 
 featureset_ptr geos_datasource::features_at_point(coord2d const& pt) const
@@ -290,6 +319,5 @@ featureset_ptr geos_datasource::features_at_point(coord2d const& pt) const
                                                geometry_id_,
                                                geometry_data_,
                                                geometry_data_name_,
-                                               desc_.get_encoding(),
-                                               multiple_geometries_);
+                                               desc_.get_encoding());
 }

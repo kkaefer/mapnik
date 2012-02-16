@@ -105,12 +105,16 @@ source = Split(
     """
     color.cpp
     box2d.cpp
+    building_symbolizer.cpp
     datasource_cache.cpp
+    deepcopy.cpp
     expression_string.cpp
-    filter_factory.cpp
-    feature_type_style.cpp
+    expression.cpp
+    feature_kv_iterator.cpp
+    feature_type_style.cpp 
     font_engine_freetype.cpp
     font_set.cpp
+    gamma_method.cpp
     gradient.cpp
     graphics.cpp
     image_reader.cpp
@@ -128,6 +132,7 @@ source = Split(
     png_reader.cpp
     point_symbolizer.cpp
     polygon_pattern_symbolizer.cpp
+    polygon_symbolizer.cpp
     save_map.cpp
     shield_symbolizer.cpp
     text_symbolizer.cpp
@@ -140,13 +145,14 @@ source = Split(
     memory_datasource.cpp
     stroke.cpp
     symbolizer.cpp
+    symbolizer_helpers.cpp
     arrow.cpp
     unicode.cpp
-    glyph_symbolizer.cpp
     markers_symbolizer.cpp
     metawriter.cpp
     raster_colorizer.cpp
     text_placements.cpp
+    text_processing.cpp
     wkt/wkt_factory.cpp
     metawriter_inmem.cpp
     metawriter_factory.cpp
@@ -157,6 +163,9 @@ source = Split(
     svg_points_parser.cpp 
     svg_transform_parser.cpp
     warp.cpp
+    json/feature_collection_parser.cpp
+    markers_placement.cpp
+    formatting/expression.cpp
     """   
     )
 
@@ -193,6 +202,20 @@ if env['RENDERING_STATS']:
 else:
     source.insert(0,processor_cpp);
 
+if env.get('BOOST_LIB_VERSION_FROM_HEADER'):
+    boost_version_from_header = int(env['BOOST_LIB_VERSION_FROM_HEADER'].split('_')[1])
+    if boost_version_from_header < 46:
+        # avoid ubuntu issue with boost interprocess:
+        # https://github.com/mapnik/mapnik/issues/1001
+        env4 = lib_env.Clone()
+        env4.Append(CXXFLAGS = '-fpermissive')
+        cpp ='mapped_memory_cache.cpp'
+        source.remove(cpp)
+        if env['LINKING'] == 'static':
+            source.insert(0,env4.StaticObject(cpp))
+        else:
+            source.insert(0,env4.SharedObject(cpp))
+
 if env['JPEG']:
     source += Split(
         """
@@ -204,7 +227,6 @@ source += Split(
     """
     agg/agg_renderer.cpp
     agg/process_building_symbolizer.cpp
-    agg/process_glyph_symbolizer.cpp
     agg/process_line_symbolizer.cpp
     agg/process_line_pattern_symbolizer.cpp
     agg/process_text_symbolizer.cpp
@@ -225,7 +247,6 @@ source += Split(
     """
     grid/grid_renderer.cpp
     grid/process_building_symbolizer.cpp
-    grid/process_glyph_symbolizer.cpp
     grid/process_line_pattern_symbolizer.cpp
     grid/process_line_symbolizer.cpp
     grid/process_markers_symbolizer.cpp
@@ -245,7 +266,6 @@ if env['SVG_RENDERER']: # svg backend
       	svg/svg_output_attributes.cpp
       	svg/process_symbolizers.cpp
       	svg/process_building_symbolizer.cpp
-      	svg/process_glyph_symbolizer.cpp
       	svg/process_line_pattern_symbolizer.cpp
       	svg/process_line_symbolizer.cpp
       	svg/process_markers_symbolizer.cpp
@@ -338,23 +358,35 @@ includes = glob.glob('../include/mapnik/*.hpp')
 svg_includes = glob.glob('../include/mapnik/svg/*.hpp')
 wkt_includes = glob.glob('../include/mapnik/wkt/*.hpp')
 grid_includes = glob.glob('../include/mapnik/grid/*.hpp')
+json_includes = glob.glob('../include/mapnik/json/*.hpp')
 util_includes = glob.glob('../include/mapnik/util/*.hpp')
+text_placements_includes = glob.glob('../include/mapnik/text_placements/*.hpp')
+formatting_includes = glob.glob('../include/mapnik/formatting/*.hpp')
 
 inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik')
 svg_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/svg')
 wkt_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/wkt')
 grid_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/grid')
+json_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/json')
 util_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/util')
+text_placements_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/text_placements')
+formatting_inc_target = os.path.normpath(env['INSTALL_PREFIX']+'/include/mapnik/formatting')
 
 if 'uninstall' not in COMMAND_LINE_TARGETS:
     env.Alias(target='install', source=env.Install(inc_target, includes))
     env.Alias(target='install', source=env.Install(svg_inc_target, svg_includes))
     env.Alias(target='install', source=env.Install(wkt_inc_target, wkt_includes))
     env.Alias(target='install', source=env.Install(grid_inc_target, grid_includes))
+    env.Alias(target='install', source=env.Install(json_inc_target, json_includes))
     env.Alias(target='install', source=env.Install(util_inc_target, util_includes))
+    env.Alias(target='install', source=env.Install(text_placements_inc_target, text_placements_includes))
+    env.Alias(target='install', source=env.Install(formatting_inc_target, formatting_includes))
 
 env['create_uninstall_target'](env, inc_target)
 env['create_uninstall_target'](env, svg_inc_target)
 env['create_uninstall_target'](env, wkt_inc_target)
 env['create_uninstall_target'](env, grid_inc_target)
+env['create_uninstall_target'](env, json_inc_target)
 env['create_uninstall_target'](env, util_inc_target)
+env['create_uninstall_target'](env, text_placements_inc_target)
+env['create_uninstall_target'](env, formatting_inc_target)

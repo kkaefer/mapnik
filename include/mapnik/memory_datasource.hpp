@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -31,7 +31,7 @@
 #include <vector>
 
 namespace mapnik {
-    
+
 class MAPNIK_DECL memory_datasource : public datasource
 {
     friend class memory_featureset;
@@ -39,31 +39,19 @@ public:
     memory_datasource();
     virtual ~memory_datasource();
     void push(feature_ptr feature);
-    int type() const;
+    datasource::datasource_t type() const;
     featureset_ptr features(const query& q) const;
     featureset_ptr features_at_point(coord2d const& pt) const;
     box2d<double> envelope() const;
+    boost::optional<geometry_t> get_geometry_type() const;
     layer_descriptor get_descriptor() const;
     size_t size() const;
+    void clear();
 private:
     std::vector<feature_ptr> features_;
     mapnik::layer_descriptor desc_;
-}; 
-   
-// This class implements a simple way of displaying point-based data
-// TODO -- possible redesign, move into separate file
-//
-   
-class MAPNIK_DECL point_datasource : public memory_datasource {
-public:
-    point_datasource() :
-        feature_id_(1) {}
-    void add_point(double x, double y, const char* key, const char* value);  
-    inline int type() const { return datasource::Vector; }
-      
-private:
-    int feature_id_;
-};   
+};
+
 }
 
 #endif // MAPNIK_MEMORY_DATASOURCE_HPP

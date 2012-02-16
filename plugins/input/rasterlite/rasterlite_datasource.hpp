@@ -36,11 +36,12 @@ class rasterlite_datasource : public mapnik::datasource
 public:
     rasterlite_datasource(mapnik::parameters const& params, bool bind = true);
     virtual ~rasterlite_datasource ();
-    int type() const;
+    mapnik::datasource::datasource_t type() const;
     static std::string name();
     mapnik::featureset_ptr features(mapnik::query const& q) const;
     mapnik::featureset_ptr features_at_point(mapnik::coord2d const& pt) const;
     mapnik::box2d<double> envelope() const;
+    boost::optional<mapnik::datasource::geometry_t> get_geometry_type() const;
     mapnik::layer_descriptor get_descriptor() const;
     void bind() const;
 

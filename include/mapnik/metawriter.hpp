@@ -41,7 +41,7 @@
 
 namespace mapnik {
 
-struct placement;
+class text_placement_info;
 
 /** Implementation of std::map that also returns const& for operator[]. */
 class metawriter_property_map
@@ -49,7 +49,7 @@ class metawriter_property_map
 public:
     typedef std::map<std::string, UnicodeString> property_map;
     typedef property_map::const_iterator const_iterator;
-    
+
     metawriter_property_map() {}
     UnicodeString const& operator[](std::string const& key) const;
     UnicodeString& operator[](std::string const& key) {return m_[key];}
@@ -60,6 +60,11 @@ public:
     std::map<std::string, UnicodeString>::const_iterator end() const
     {
         return m_.end();
+    }
+
+    UnicodeString const& get(std::string const& key) const
+    {
+        return (*this)[key];
     }
 private:
     property_map m_;
@@ -72,7 +77,7 @@ class metawriter_properties : public std::set<std::string>
 {
 public:
     metawriter_properties(boost::optional<std::string> str);
-    metawriter_properties() {};
+    metawriter_properties() {}
     template <class InputIterator> metawriter_properties(
         InputIterator first, InputIterator last) : std::set<std::string>(first, last) {}
     std::string to_string() const;
@@ -84,10 +89,10 @@ class metawriter
 public:
     typedef coord_transform2<CoordTransform,geometry_type> path_type;
     metawriter(metawriter_properties dflt_properties) :
-      dflt_properties_(dflt_properties),
-      width_(0),
-      height_(0) {}
-    virtual ~metawriter() {};
+        dflt_properties_(dflt_properties),
+        width_(0),
+        height_(0) {}
+    virtual ~metawriter() {}
     /** Output a rectangular area.
      * \param box Area (in pixel coordinates)
      * \param feature The feature being processed
@@ -98,8 +103,8 @@ public:
     virtual void add_box(box2d<double> const& box, Feature const& feature,
                          CoordTransform const& t,
                          metawriter_properties const& properties)=0;
-    virtual void add_text(placement const& placement,
-                          face_set_ptr face,
+    virtual void add_text(text_placement_info const& placement,
+                          face_manager_freetype &font_manager,
                           Feature const& feature,
                           CoordTransform const& t,
                           metawriter_properties const& properties)=0;
@@ -118,15 +123,15 @@ public:
      * \param properties metawriter_property_map object with userdefined values.
      *        Useful for setting filename etc.
      */
-    virtual void start(metawriter_property_map const& properties) 
+    virtual void start(metawriter_property_map const& properties)
     {
         boost::ignore_unused_variable_warning(properties);
-    };
-    
+    }
+
     /** Stop processing.
      * Write file footer, close database connection, ...
      */
-    virtual void stop() {};
+    virtual void stop() {}
     /** Set output size (pixels).
      * All features that are completely outside this size are discarded.
      */

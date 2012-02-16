@@ -13,6 +13,7 @@
 #include <mapnik/geometry.hpp>
 #include <mapnik/memory_featureset.hpp>
 #include <mapnik/wkt/wkt_factory.hpp>
+#include <mapnik/util/geometry_to_ds_type.hpp>
 #include <mapnik/ptree_helpers.hpp>  // mapnik::boolean
 
 // stl
@@ -388,7 +389,14 @@ void csv_datasource::parse_csv(T& stream,
 
     int feature_count(1);
     bool extent_initialized = false;
-    unsigned num_headers = headers_.size();
+    std::size_t num_headers = headers_.size();
+
+    ctx_ = boost::make_shared<mapnik::context_type>();
+    for (std::size_t i = 0; i < headers_.size(); ++i)
+    {
+        ctx_->push(headers_[i]);
+    }
+
     mapnik::transcoder tr(desc_.get_encoding());
 
     while (std::getline(stream,csv_line,newline))
@@ -434,7 +442,7 @@ void csv_datasource::parse_csv(T& stream,
                 }
             }
 
-            mapnik::feature_ptr feature(mapnik::feature_factory::create(feature_count));
+            mapnik::feature_ptr feature(mapnik::feature_factory::create(ctx_,feature_count));
             double x(0);
             double y(0);
             bool parsed_x = false;
@@ -450,9 +458,7 @@ void csv_datasource::parse_csv(T& stream,
                 std::string value;
                 if (beg == tok.end())
                 {
-                    UnicodeString ustr = tr.transcode(value.c_str());
-                    boost::put(*feature,fld_name,ustr);
-                    //  boost::put(*feature,fld_name,mapnik::value_null());
+                    feature->put(fld_name,tr.transcode(value.c_str()));
                     null_geom = true;
                     if (feature_count == 1)
                     {
@@ -490,7 +496,9 @@ void csv_datasource::parse_csv(T& stream,
                             std::string::const_iterator str_end = value.end();
                             bool r = qi::phrase_parse(str_beg,str_end,
                                                       (
-                                                          qi::lit("POINT") >> '(' >> double_[ref(x) = _1] >>  double_[ref(y) = _1] >> ')'
+                                                          qi::lit("POINT") >> '('
+                                                          >> double_[ref(x) = _1]
+                                                          >>  double_[ref(y) = _1] >> ')'
                                                           ),
                                                       ascii::space);
 
@@ -615,28 +623,26 @@ void csv_datasource::parse_csv(T& stream,
                     }
                 }
 
-                // add all values as attributes
-                // here we detect numbers and treat everything else as pure strings
-                // this is intentional since boolean and null types are not common in csv editors
-                if (value.empty())
-                {
-                    UnicodeString ustr = tr.transcode(value.c_str());
-                    boost::put(*feature,fld_name,ustr);
-                    if (feature_count == 1)
-                    {
-                        desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::String));
-                    }
-                }
-                // only true strings are this long
-                else if (value_length > 20)
-                {
-                    UnicodeString ustr = tr.transcode(value.c_str());
-                    boost::put(*feature,fld_name,ustr);
-                    if (feature_count == 1)
-                    {
-                        desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::String));
-                    }
+                // now, add all values as attributes
+                /* First we detect likely strings, then try parsing likely numbers,
+                   finally falling back to string type
+                   * We intentionally do not try to detect boolean or null types
+                   since they are not common in csv
+                   * Likely strings are either empty values, very long values
+                   or value with leading zeros like 001 (which are not safe
+                   to assume are numbers)
+                */
 
+                bool has_dot = value.find(".") != std::string::npos;
+                if (value.empty() ||
+                    (value_length > 20) ||
+                    (value_length > 1 && !has_dot && value[0] == '0'))
+                {
+                    feature->put(fld_name,tr.transcode(value.c_str()));
+                    if (feature_count == 1)
+                    {
+                        desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::String));
+                    }
                 }
                 else if ((value[0] >= '0' && value[0] <= '9') || value[0] == '-')
                 {
@@ -646,43 +652,48 @@ void csv_datasource::parse_csv(T& stream,
                     bool r = qi::phrase_parse(str_beg,str_end,qi::double_,ascii::space,float_val);
                     if (r && (str_beg == str_end))
                     {
-                        if (value.find(".") != std::string::npos)
+                        if (has_dot)
                         {
-                            boost::put(*feature,fld_name,float_val);
+                            feature->put(fld_name,float_val);
                             if (feature_count == 1)
                             {
-                                desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::Double));
+                                desc_.add_descriptor(
+                                    mapnik::attribute_descriptor(
+                                        fld_name,mapnik::Double));
                             }
                         }
                         else
                         {
-                            int val = static_cast<int>(float_val);
-                            boost::put(*feature,fld_name,val);
+                            feature->put(fld_name,static_cast<int>(float_val));
                             if (feature_count == 1)
                             {
-                                desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::Integer));
+                                desc_.add_descriptor(
+                                    mapnik::attribute_descriptor(
+                                        fld_name,mapnik::Integer));
                             }
                         }
                     }
                     else
                     {
                         // fallback to normal string
-                        UnicodeString ustr = tr.transcode(value.c_str());
-                        boost::put(*feature,fld_name,ustr);
+                        feature->put(fld_name,tr.transcode(value.c_str()));
                         if (feature_count == 1)
                         {
-                            desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::String));
+                            desc_.add_descriptor(
+                                mapnik::attribute_descriptor(
+                                    fld_name,mapnik::String));
                         }
                     }
                 }
                 else
                 {
                     // fallback to normal string
-                    UnicodeString ustr = tr.transcode(value.c_str());
-                    boost::put(*feature,fld_name,ustr);
+                    feature->put(fld_name,tr.transcode(value.c_str()));
                     if (feature_count == 1)
                     {
-                        desc_.add_descriptor(mapnik::attribute_descriptor(fld_name,mapnik::String));
+                        desc_.add_descriptor(
+                            mapnik::attribute_descriptor(
+                                fld_name,mapnik::String));
                     }
                 }
             }
@@ -828,7 +839,7 @@ std::string csv_datasource::name()
     return "csv";
 }
 
-int csv_datasource::type() const
+datasource::datasource_t csv_datasource::type() const
 {
     return datasource::Vector;
 }
@@ -838,6 +849,29 @@ mapnik::box2d<double> csv_datasource::envelope() const
     if (!is_bound_) bind();
 
     return extent_;
+}
+
+boost::optional<mapnik::datasource::geometry_t> csv_datasource::get_geometry_type() const
+{
+    if (! is_bound_) bind();
+    boost::optional<mapnik::datasource::geometry_t> result;
+    int multi_type = 0;
+    unsigned num_features = features_.size();
+    for (unsigned i = 0; i < num_features && i < 5; ++i)
+    {
+        mapnik::util::to_ds_type(features_[i]->paths(),result);
+        if (result)
+        {
+            int type = static_cast<int>(*result);
+            if (multi_type > 0 && multi_type != type)
+            {
+                result.reset(mapnik::datasource::Collection);
+                return result;
+            }
+            multi_type = type;
+        }
+    }
+    return result;
 }
 
 mapnik::layer_descriptor csv_datasource::get_descriptor() const
@@ -856,7 +890,7 @@ mapnik::featureset_ptr csv_datasource::features(mapnik::query const& q) const
     while (pos != attribute_names.end())
     {
         bool found_name = false;
-        for (int i = 0; i < headers_.size(); ++i)
+        for (std::size_t i = 0; i < headers_.size(); ++i)
         {
             if (headers_[i] == *pos)
             {

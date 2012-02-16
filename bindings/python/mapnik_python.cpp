@@ -37,6 +37,7 @@ void export_geometry();
 void export_palette();
 void export_image();
 void export_image_view();
+void export_gamma_method();
 void export_grid();
 void export_grid_view();
 void export_map();
@@ -47,6 +48,7 @@ void export_style();
 void export_stroke();
 void export_feature();
 void export_featureset();
+void export_fontset();
 void export_datasource();
 void export_datasource_cache();
 void export_symbolizer();
@@ -58,13 +60,13 @@ void export_polygon_symbolizer();
 void export_polygon_pattern_symbolizer();
 void export_raster_symbolizer();
 void export_text_symbolizer();
+void export_text_placement();
 void export_shield_symbolizer();
 void export_font_engine();
 void export_projection();
 void export_proj_transform();
 void export_view_transform();
 void export_raster_colorizer();
-void export_glyph_symbolizer();
 void export_inmem_metawriter();
 void export_label_collision_detector();
 
@@ -82,8 +84,10 @@ void export_label_collision_detector();
 #include <mapnik/scale_denominator.hpp>
 #include <mapnik/value_error.hpp>
 #include <mapnik/save_map.hpp>
+#include <mapnik/scale_denominator.hpp>
 #include "python_grid_utils.hpp"
 #include "mapnik_value_converter.hpp"
+#include "python_optional.hpp"
 
 #if defined(HAVE_CAIRO) && defined(HAVE_PYCAIRO)
 #include <pycairo.h>
@@ -397,6 +401,7 @@ BOOST_PYTHON_MODULE(_mapnik)
     export_geometry();
     export_feature();
     export_featureset();
+    export_fontset();
     export_datasource();
     export_parameters();
     export_color();
@@ -404,6 +409,7 @@ BOOST_PYTHON_MODULE(_mapnik)
     export_palette();
     export_image();
     export_image_view();
+    export_gamma_method();
     export_grid();
     export_grid_view();
     export_expression();
@@ -420,6 +426,7 @@ BOOST_PYTHON_MODULE(_mapnik)
     export_polygon_symbolizer();
     export_polygon_pattern_symbolizer();
     export_raster_symbolizer();
+    export_text_placement();
     export_text_symbolizer();
     export_shield_symbolizer();
     export_font_engine();
@@ -429,7 +436,6 @@ BOOST_PYTHON_MODULE(_mapnik)
     export_coord();
     export_map();
     export_raster_colorizer();
-    export_glyph_symbolizer();
     export_inmem_metawriter();
     export_label_collision_detector();
 
@@ -628,6 +634,9 @@ BOOST_PYTHON_MODULE(_mapnik)
     def("has_cairo", &has_cairo, "Get cairo library status");
     def("has_pycairo", &has_pycairo, "Get pycairo module status");
 
+    python_optional<mapnik::color> ();
+    python_optional<mapnik::box2d<double> > ();
+    python_optional<mapnik::datasource::geometry_t> ();
     register_ptr_to_python<mapnik::expression_ptr>();
     register_ptr_to_python<mapnik::path_expression_ptr>();
     to_python_converter<mapnik::value_holder,mapnik_param_to_python>();

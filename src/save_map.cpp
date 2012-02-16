@@ -28,6 +28,9 @@
 #include <mapnik/expression_string.hpp>
 #include <mapnik/raster_colorizer.hpp>
 #include <mapnik/metawriter_factory.hpp>
+#include <mapnik/text_placements/simple.hpp>
+#include <mapnik/text_placements/list.hpp>
+#include <mapnik/text_placements/dummy.hpp>
 
 // boost
 #include <boost/algorithm/string.hpp>
@@ -89,7 +92,7 @@ public:
             set_attr( sym_node, "rasterizer", sym.get_rasterizer() );
         }
     }
-        
+
     void operator () ( const line_pattern_symbolizer & sym )
     {
         ptree & sym_node = rule_.push_back(
@@ -118,6 +121,10 @@ public:
         {
             set_attr( sym_node, "gamma", sym.get_gamma() );
         }
+        if ( sym.get_gamma_method() != dfl.get_gamma_method() || explicit_defaults_ )
+        {
+            set_attr( sym_node, "gamma-method", sym.get_gamma_method() );
+        }
         add_metawriter_attributes(sym_node, sym);
     }
 
@@ -132,12 +139,14 @@ public:
         {
             set_attr( sym_node, "alignment", sym.get_alignment() );
         }
-
         if ( sym.get_gamma() != dfl.get_gamma() || explicit_defaults_ )
         {
             set_attr( sym_node, "gamma", sym.get_gamma() );
         }
-
+        if ( sym.get_gamma_method() != dfl.get_gamma_method() || explicit_defaults_ )
+        {
+            set_attr( sym_node, "gamma-method", sym.get_gamma_method() );
+        }
         add_image_attributes( sym_node, sym );
         add_metawriter_attributes(sym_node, sym);
     }
@@ -157,7 +166,7 @@ public:
         {
             set_attr( sym_node, "scaling", sym.get_scaling() );
         }
-        
+
         if ( sym.get_opacity() != dfl.get_opacity() || explicit_defaults_ )
         {
             set_attr( sym_node, "opacity", sym.get_opacity() );
@@ -181,8 +190,8 @@ public:
             ptree::value_type("ShieldSymbolizer",
                               ptree()))->second;
 
-        add_font_attributes( sym_node, sym);
-        add_image_attributes( sym_node, sym);
+        add_font_attributes(sym_node, sym);
+        add_image_attributes(sym_node, sym);
         add_metawriter_attributes(sym_node, sym);
 
         // pseudo-default-construct a shield_symbolizer. It is used
@@ -190,29 +199,25 @@ public:
         // repeating the default values here.
         // maybe add a real, explicit default-ctor?
 
-        
-        shield_symbolizer dfl(expression_ptr(), "<no default>", 0, color(0,0,0), path_expression_ptr());
-        
-        if (sym.get_unlock_image() != dfl.get_unlock_image() || explicit_defaults_ )
+
+        shield_symbolizer dfl;
+
+        if (sym.get_unlock_image() != dfl.get_unlock_image() || explicit_defaults_)
         {
-            set_attr( sym_node, "unlock-image", sym.get_unlock_image() );
+            set_attr(sym_node, "unlock-image", sym.get_unlock_image());
         }
-        if (sym.get_no_text() != dfl.get_no_text() || explicit_defaults_ )
+        if (sym.get_text_opacity() != dfl.get_text_opacity() || explicit_defaults_)
         {
-            set_attr( sym_node, "no-text", sym.get_no_text() );
-        }
-        if (sym.get_text_opacity() != dfl.get_text_opacity() || explicit_defaults_ )
-        {
-            set_attr( sym_node, "text-opacity", sym.get_text_opacity() );
+            set_attr(sym_node, "text-opacity", sym.get_text_opacity());
         }
         position displacement = sym.get_shield_displacement();
-        if ( displacement.get<0>() != dfl.get_shield_displacement().get<0>() || explicit_defaults_ )
+        if (displacement.first != dfl.get_shield_displacement().first || explicit_defaults_)
         {
-            set_attr( sym_node, "shield-dx", displacement.get<0>() );
+            set_attr(sym_node, "shield-dx", displacement.first);
         }
-        if ( displacement.get<1>() != dfl.get_shield_displacement().get<1>() || explicit_defaults_ )
+        if (displacement.second != dfl.get_shield_displacement().second || explicit_defaults_)
         {
-            set_attr( sym_node, "shield-dy", displacement.get<1>() );
+            set_attr(sym_node, "shield-dy", displacement.second);
         }
 
     }
@@ -241,10 +246,9 @@ public:
         {
             set_attr( sym_node, "fill-opacity", sym.get_opacity() );
         }
-        if ( sym.height() != dfl.height() || explicit_defaults_ )
-        {
-            set_attr( sym_node, "height", sym.height() );
-        }
+
+        set_attr( sym_node, "height", to_expression_string(*sym.height()) );
+
         add_metawriter_attributes(sym_node, sym);
     }
 
@@ -305,103 +309,9 @@ public:
         add_metawriter_attributes(sym_node, sym);
     }
 
-    void operator () ( glyph_symbolizer const& sym)
-    {
-        ptree &node = rule_.push_back(
-            ptree::value_type("GlyphSymbolizer", ptree())
-            )->second;
-                
-        glyph_symbolizer dfl("<no default>", expression_ptr());
-
-        // face_name
-        set_attr( node, "face-name", sym.get_face_name() );    
-
-        // char
-        if (sym.get_char()) {
-            const std::string &str =
-                to_expression_string(*sym.get_char());
-            set_attr( node, "char", str );
-        }
-
-        // angle
-        if (sym.get_angle()) {
-            const std::string &str =
-                to_expression_string(*sym.get_angle());
-            set_attr( node, "angle", str );
-        }
-
-        // value
-        if (sym.get_value()) {
-            const std::string &str =
-                to_expression_string(*sym.get_value());
-            set_attr( node, "value", str );
-        }
-
-        // size
-        if (sym.get_size()) {
-            const std::string &str =
-                to_expression_string(*sym.get_size());
-            set_attr( node, "size", str );
-        }
-
-        // color
-        if (sym.get_color()) {
-            const std::string &str =
-                to_expression_string(*sym.get_color());
-            set_attr( node, "color", str );
-        }
-
-        // colorizer
-        if (sym.get_colorizer()) {
-            serialize_raster_colorizer(node, sym.get_colorizer(),
-                                       explicit_defaults_);
-        }
-
-        // allow_overlap
-        if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_ )
-        {
-            set_attr( node, "allow-overlap", sym.get_allow_overlap() );
-        }
-        // avoid_edges
-        if (sym.get_avoid_edges() != dfl.get_avoid_edges() || explicit_defaults_ )
-        {
-            set_attr( node, "avoid-edges", sym.get_avoid_edges() );
-        }
-
-        // displacement
-        position displacement = sym.get_displacement();
-        if ( displacement.get<0>() != dfl.get_displacement().get<0>() || explicit_defaults_ )
-        {
-            set_attr( node, "dx", displacement.get<0>() );
-        }
-        if ( displacement.get<1>() != dfl.get_displacement().get<1>() || explicit_defaults_ )
-        {
-            set_attr( node, "dy", displacement.get<1>() );
-        }
-
-        // halo fill & radius
-        const color & c = sym.get_halo_fill();
-        if ( c != dfl.get_halo_fill() || explicit_defaults_ )
-        {
-            set_attr( node, "halo-fill", c );
-        }
-        
-        if (sym.get_halo_radius() != dfl.get_halo_radius() || explicit_defaults_ )
-        {
-            set_attr( node, "halo-radius", sym.get_halo_radius() );
-        }
-
-        // angle_mode
-        if (sym.get_angle_mode() != dfl.get_angle_mode() || explicit_defaults_ )
-        {
-            set_attr( node, "angle-mode", sym.get_angle_mode() );
-        }
-        add_metawriter_attributes(node, sym);
-    }
-
 private:
     serialize_symbolizer();
-    
+
     void serialize_raster_colorizer(ptree & sym_node,
                                     raster_colorizer_ptr const& colorizer,
                                     bool explicit_defaults)
@@ -425,7 +335,7 @@ private:
         }
 
     }
-    
+
     void add_image_attributes(ptree & node, const symbolizer_with_image & sym)
     {
         std::string const& filename = path_processor_type::to_string( *sym.get_filename());
@@ -436,7 +346,7 @@ private:
         {
             set_attr( node, "opacity", sym.get_opacity() );
         }
-        
+
         std::string tr_str = sym.get_transform_string();
         if (tr_str != "matrix(1, 0, 0, 1, 0, 0)" || explicit_defaults_ )
         {
@@ -446,134 +356,29 @@ private:
     }
     void add_font_attributes(ptree & node, const text_symbolizer & sym)
     {
-        expression_ptr const& expr = sym.get_name();
-        const std::string & name = to_expression_string(*expr);
-                
-        if (!name.empty()) {
-            ptree& text_node = node.push_back(ptree::value_type("<xmltext>", ptree()))->second;
-            text_node.put_value(name);
+        text_placements_ptr p = sym.get_placement_options();
+        p->defaults.to_xml(node, explicit_defaults_);
+        /* Known types:
+           - text_placements_dummy: no handling required
+           - text_placements_simple: positions string
+           - text_placements_list: list string
+        */
+        text_placements_simple *simple = dynamic_cast<text_placements_simple *>(p.get());
+        text_placements_list *list = dynamic_cast<text_placements_list *>(p.get());
+        if (simple) {
+            set_attr(node, "placement-type", "simple");
+            set_attr(node, "placements", simple->get_positions());
         }
-        const std::string & face_name = sym.get_face_name();
-        if ( ! face_name.empty() ) {
-            set_attr( node, "face-name", face_name );
-        }
-        const std::string & fontset_name = sym.get_fontset().get_name();
-        if ( ! fontset_name.empty() ) {
-            set_attr( node, "fontset-name", fontset_name );
-        }
-
-        set_attr( node, "size", sym.get_text_size() );
-        set_attr( node, "fill", sym.get_fill() );
-
-        // pseudo-default-construct a text_symbolizer. It is used
-        // to avoid printing ofattributes with default values without
-        // repeating the default values here.
-        // maybe add a real, explicit default-ctor?
-        // FIXME
-        text_symbolizer dfl(expression_ptr(), "<no default>",
-                            0, color(0,0,0) );
-
-        position displacement = sym.get_displacement();
-        if ( displacement.get<0>() != dfl.get_displacement().get<0>() || explicit_defaults_ )
-        {
-            set_attr( node, "dx", displacement.get<0>() );
-        }
-        if ( displacement.get<1>() != dfl.get_displacement().get<1>() || explicit_defaults_ )
-        {
-            set_attr( node, "dy", displacement.get<1>() );
-        }
-
-        if (sym.get_label_placement() != dfl.get_label_placement() || explicit_defaults_ )
-        {
-            set_attr( node, "placement", sym.get_label_placement() );
-        }
-
-        if (sym.get_vertical_alignment() != dfl.get_vertical_alignment() || explicit_defaults_ )
-        {
-            set_attr( node, "vertical-alignment", sym.get_vertical_alignment() );
-        }
-
-        if (sym.get_halo_radius() != dfl.get_halo_radius() || explicit_defaults_ )
-        {
-            set_attr( node, "halo-radius", sym.get_halo_radius() );
-        }
-        const color & c = sym.get_halo_fill();
-        if ( c != dfl.get_halo_fill() || explicit_defaults_ )
-        {
-            set_attr( node, "halo-fill", c );
-        }
-        if (sym.get_text_ratio() != dfl.get_text_ratio() || explicit_defaults_ )
-        {
-            set_attr( node, "text-ratio", sym.get_text_ratio() );
-        }
-        if (sym.get_wrap_width() != dfl.get_wrap_width() || explicit_defaults_ )
-        {
-            set_attr( node, "wrap-width", sym.get_wrap_width() );
-        }
-        if (sym.get_wrap_before() != dfl.get_wrap_before() || explicit_defaults_ )
-        {
-            set_attr( node, "wrap-before", sym.get_wrap_before() );
-        }
-        if (sym.get_wrap_char() != dfl.get_wrap_char() || explicit_defaults_ )
-        {
-            set_attr( node, "wrap-character", std::string(1, sym.get_wrap_char()) );
-        }
-        if (sym.get_text_transform() != dfl.get_text_transform() || explicit_defaults_ )
-        {
-            set_attr( node, "text-transform", sym.get_text_transform() );
-        }
-        if (sym.get_line_spacing() != dfl.get_line_spacing() || explicit_defaults_ )
-        {
-            set_attr( node, "line-spacing", sym.get_line_spacing() );
-        }
-        if (sym.get_character_spacing() != dfl.get_character_spacing() || explicit_defaults_ )
-        {
-            set_attr( node, "character-spacing", sym.get_character_spacing() );
-        }
-        if (sym.get_label_position_tolerance() != dfl.get_label_position_tolerance() || explicit_defaults_ )
-        {
-            set_attr( node, "label-position-tolerance", sym.get_label_position_tolerance() );
-        }
-        if (sym.get_label_spacing() != dfl.get_label_spacing() || explicit_defaults_ )
-        {
-            set_attr( node, "spacing", sym.get_label_spacing() );
-        }
-        if (sym.get_minimum_distance() != dfl.get_minimum_distance() || explicit_defaults_ )
-        {
-            set_attr( node, "minimum-distance", sym.get_minimum_distance() );
-        }
-        if (sym.get_minimum_padding() != dfl.get_minimum_padding() || explicit_defaults_ )
-        {
-            set_attr( node, "minimum-padding", sym.get_minimum_padding() );
-        }
-        if (sym.get_minimum_path_length() != dfl.get_minimum_path_length() || explicit_defaults_ )
-        {
-            set_attr( node, "minimum-path-length", sym.get_minimum_path_length() );
-        }
-        if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_ )
-        {
-            set_attr( node, "allow-overlap", sym.get_allow_overlap() );
-        }
-        if (sym.get_avoid_edges() != dfl.get_avoid_edges() || explicit_defaults_ )
-        {
-            set_attr( node, "avoid-edges", sym.get_avoid_edges() );
-        }
-        // for shield_symbolizer this is later overridden
-        if (sym.get_text_opacity() != dfl.get_text_opacity() || explicit_defaults_ )
-        {
-            set_attr( node, "opacity", sym.get_text_opacity() );
-        }
-        if (sym.get_max_char_angle_delta() != dfl.get_max_char_angle_delta() || explicit_defaults_ )
-        {
-            set_attr( node, "max-char-angle-delta", sym.get_max_char_angle_delta() );
-        }
-        if (sym.get_horizontal_alignment() != dfl.get_horizontal_alignment() || explicit_defaults_ )
-        {
-            set_attr( node, "horizontal-alignment", sym.get_horizontal_alignment() );
-        }
-        if (sym.get_justify_alignment() != dfl.get_justify_alignment() || explicit_defaults_ )
-        {
-            set_attr( node, "justify-alignment", sym.get_justify_alignment() );
+        if (list) {
+            set_attr(node, "placement-type", "list");
+            unsigned i;
+            //dfl = last properties passed as default so only attributes that change are actually written
+            text_symbolizer_properties *dfl = &(list->defaults);
+            for (i=0; i < list->size(); i++) {
+                ptree &placement_node = node.push_back(ptree::value_type("Placement", ptree()))->second;
+                list->get(i).to_xml(placement_node, explicit_defaults_, *dfl);
+                dfl = &(list->get(i));
+            }
         }
     }
 
@@ -582,7 +387,7 @@ private:
     {
 
         stroke dfl = stroke();
-        
+
         if ( strk.get_color() != dfl.get_color() || explicit_defaults_ )
         {
             set_attr( node, "stroke", strk.get_color() );
@@ -607,6 +412,10 @@ private:
         {
             set_attr( node, "stroke-gamma", strk.get_gamma());
         }
+        if ( strk.get_gamma_method() != dfl.get_gamma_method() || explicit_defaults_ )
+        {
+            set_attr( node, "stroke-gamma-method", strk.get_gamma_method() );
+        }
         if ( strk.dash_offset() != dfl.dash_offset() || explicit_defaults_ )
         {
             set_attr( node, "stroke-dash-offset", strk.dash_offset());
@@ -621,7 +430,7 @@ private:
             }
             set_attr( node, "stroke-dasharray", os.str() );
         }
-                
+
     }
     void add_metawriter_attributes(ptree &node, symbolizer_base const& sym)
     {
@@ -647,10 +456,6 @@ void serialize_rule( ptree & style_node, const rule & r, bool explicit_defaults)
     {
         set_attr(rule_node, "name", r.get_name());
     }
-    if ( r.get_title() != dfl.get_title() )
-    {
-        set_attr(rule_node, "title", r.get_title());
-    }
 
     if ( r.has_else_filter() )
     {
@@ -668,7 +473,7 @@ void serialize_rule( ptree & style_node, const rule & r, bool explicit_defaults)
         expression_ptr const& expr = r.get_filter();
         std::string filter = mapnik::to_expression_string(*expr);
         std::string default_filter = mapnik::to_expression_string(*dfl.get_filter());
-            
+
         if ( filter != default_filter)
         {
             rule_node.push_back( ptree::value_type(
@@ -706,7 +511,7 @@ void serialize_style( ptree & map_node, Map::const_style_iterator style_it, bool
         ptree::value_type("Style", ptree()))->second;
 
     set_attr(style_node, "name", name);
-    
+
     feature_type_style dfl;
     if (filter_mode != dfl.get_filter_mode() || explicit_defaults)
     {
@@ -763,7 +568,7 @@ void serialize_datasource( ptree & layer_node, datasource_ptr datasource)
 
 class serialize_type : public boost::static_visitor<>
 {
- public:
+public:
     serialize_type( boost::property_tree::ptree & node):
         node_(node) {}
 
@@ -787,7 +592,7 @@ class serialize_type : public boost::static_visitor<>
         node_.put("<xmlattr>.type", "string" );
     }
 
- private:
+private:
     boost::property_tree::ptree & node_;
 };
 
@@ -796,7 +601,7 @@ void serialize_parameters( ptree & map_node, mapnik::parameters const& params)
     if (params.size()) {
         ptree & params_node = map_node.push_back(
             ptree::value_type("Parameters", ptree()))->second;
-    
+
         parameters::const_iterator it = params.begin();
         parameters::const_iterator end = params.end();
         for (; it != end; ++it)
@@ -815,19 +620,10 @@ void serialize_layer( ptree & map_node, const layer & layer, bool explicit_defau
 {
     ptree & layer_node = map_node.push_back(
         ptree::value_type("Layer", ptree()))->second;
+
     if ( layer.name() != "" )
     {
         set_attr( layer_node, "name", layer.name() );
-    }
-
-    if ( layer.abstract() != "" )
-    {
-        set_attr( layer_node, "abstract", layer.abstract() );
-    }
-
-    if ( layer.title() != "" )
-    {
-        set_attr( layer_node, "title", layer.title() );
     }
 
     if ( layer.srs() != "" )
@@ -839,9 +635,9 @@ void serialize_layer( ptree & map_node, const layer & layer, bool explicit_defau
     {
         set_attr/*<bool>*/( layer_node, "status", layer.isActive() );
     }
-        
+
     if ( layer.clear_label_cache() || explicit_defaults )
-    {        
+    {
         set_attr/*<bool>*/( layer_node, "clear-label-cache", layer.clear_label_cache() );
     }
 
@@ -861,8 +657,13 @@ void serialize_layer( ptree & map_node, const layer & layer, bool explicit_defau
     }
 
     if ( layer.cache_features() || explicit_defaults )
-    {        
+    {
         set_attr/*<bool>*/( layer_node, "cache-features", layer.cache_features() );
+    }
+
+    if ( layer.group_by() != "" || explicit_defaults )
+    {
+        set_attr( layer_node, "group-by", layer.group_by() );
     }
 
     std::vector<std::string> const& style_names = layer.styles();
@@ -911,17 +712,17 @@ void serialize_map(ptree & pt, Map const & map, bool explicit_defaults)
     {
         set_attr( map_node, "background-image", *image_filename );
     }
-    
+
     unsigned buffer_size = map.buffer_size();
     if ( buffer_size || explicit_defaults)
     {
-        set_attr( map_node, "buffer-size", buffer_size ); 
+        set_attr( map_node, "buffer-size", buffer_size );
     }
 
     std::string const& base_path = map.base_path();
     if ( !base_path.empty() || explicit_defaults)
     {
-        set_attr( map_node, "base", base_path ); 
+        set_attr( map_node, "base", base_path );
     }
 
     optional<box2d<double> > const& maximum_extent = map.maximum_extent();
@@ -931,7 +732,7 @@ void serialize_map(ptree & pt, Map const & map, bool explicit_defaults)
         s << std::setprecision(16)
           << maximum_extent->minx() << "," << maximum_extent->miny() << ","
           << maximum_extent->maxx() << "," << maximum_extent->maxy();
-        set_attr( map_node, "maximum-extent", s.str() ); 
+        set_attr( map_node, "maximum-extent", s.str() );
     }
 
     {
@@ -948,9 +749,9 @@ void serialize_map(ptree & pt, Map const & map, bool explicit_defaults)
     parameters::const_iterator p_end = extra_attr.end();
     for (; p_it != p_end; ++p_it)
     {
-        set_attr( map_node, p_it->first, p_it->second ); 
+        set_attr( map_node, p_it->first, p_it->second );
     }
-    
+
     serialize_parameters( map_node, map.get_extra_parameters());
 
     Map::const_style_iterator it = map.styles().begin();

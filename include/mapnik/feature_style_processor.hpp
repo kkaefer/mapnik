@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -23,8 +23,16 @@
 #ifndef MAPNIK_FEATURE_STYLE_PROCESSOR_HPP
 #define MAPNIK_FEATURE_STYLE_PROCESSOR_HPP
 
+// mapnik
+#include <mapnik/map.hpp>
+#include <mapnik/projection.hpp>
+#include <mapnik/memory_datasource.hpp>
+
+
+// stl
 #include <set>
 #include <string>
+#include <vector>
 
 namespace mapnik
 {
@@ -32,9 +40,9 @@ namespace mapnik
 class Map;
 class layer;
 class projection;
-  
+
 template <typename Processor>
-class feature_style_processor 
+class feature_style_processor
 {
     struct symbol_dispatch;
 public:
@@ -62,10 +70,22 @@ private:
     /*!
      * @return render a layer given a projection and scale.
      */
-    void apply_to_layer(layer const& lay, Processor & p, 
+    void apply_to_layer(layer const& lay,
+                        Processor & p,
                         projection const& proj0,
                         double scale_denom,
                         std::set<std::string>& names);
+
+    /*!
+     * @return renders a featureset with the given styles.
+     */
+    void render_style(layer const& lay,
+                      Processor & p,
+                      feature_type_style* style,
+                      std::string const& style_name,
+                      featureset_ptr features,
+                      proj_transform const& prj_trans,
+                      double scale_denom);
 
     Map const& m_;
     double scale_factor_;

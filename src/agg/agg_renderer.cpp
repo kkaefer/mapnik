@@ -31,6 +31,7 @@
 #include <mapnik/font_set.hpp>
 #include <mapnik/parse_path.hpp>
 #include <mapnik/text_path.hpp>
+#include <mapnik/map.hpp>
 #include <mapnik/svg/svg_converter.hpp>
 #include <mapnik/svg/svg_renderer.hpp>
 #include <mapnik/svg/svg_path_adapter.hpp>
@@ -124,7 +125,7 @@ agg_renderer<T>::agg_renderer(Map const& m, T & pixmap, double scale_factor, uns
       detector_(boost::make_shared<label_collision_detector4>(box2d<double>(-m.buffer_size(), -m.buffer_size(), m.width() + m.buffer_size() ,m.height() + m.buffer_size()))),
       ras_ptr(new rasterizer)
 {
-   setup(m);
+    setup(m);
 }
 
 template <typename T>
@@ -141,15 +142,15 @@ agg_renderer<T>::agg_renderer(Map const& m, T & pixmap, boost::shared_ptr<label_
       detector_(detector),
       ras_ptr(new rasterizer)
 {
-   setup(m);
+    setup(m);
 }
 
 template <typename T>
-void agg_renderer<T>::setup(Map const &m) 
+void agg_renderer<T>::setup(Map const &m)
 {
     boost::optional<color> const& bg = m.background();
     if (bg) pixmap_.set_background(*bg);
-    
+
     boost::optional<std::string> const& image_filename = m.background_image();
     if (image_filename)
     {
@@ -183,14 +184,11 @@ template <typename T>
 agg_renderer<T>::~agg_renderer() {}
 
 template <typename T>
-#ifdef MAPNIK_DEBUG
 void agg_renderer<T>::start_map_processing(Map const& map)
 {
+#ifdef MAPNIK_DEBUG
     std::clog << "start map processing bbox="
               << map.get_current_extent() << "\n";
-#else
-void agg_renderer<T>::start_map_processing(Map const& /*map*/)
-{
 #endif
     ras_ptr->clip_box(0,0,width_,height_);
 }
@@ -225,7 +223,7 @@ void agg_renderer<T>::end_layer_processing(layer const&)
 }
 
 template <typename T>
-void agg_renderer<T>::render_marker(const int x, const int y, marker &marker, const agg::trans_affine & tr, double opacity)
+void agg_renderer<T>::render_marker(int x, int y, marker & marker, agg::trans_affine const& tr, double opacity)
 {
     if (marker.is_vector())
     {
@@ -234,7 +232,7 @@ void agg_renderer<T>::render_marker(const int x, const int y, marker &marker, co
         typedef agg::renderer_scanline_aa_solid<renderer_base> renderer_solid;
 
         ras_ptr->reset();
-        ras_ptr->gamma(agg::gamma_linear());
+        ras_ptr->gamma(agg::gamma_power());
         agg::scanline_u8 sl;
         agg::rendering_buffer buf(pixmap_.raw_data(), width_, height_, width_ * 4);
         pixfmt pixf(buf);
@@ -253,10 +251,10 @@ void agg_renderer<T>::render_marker(const int x, const int y, marker &marker, co
         vertex_stl_adapter<svg_path_storage> stl_storage((*marker.get_vector_data())->source());
         svg_path_adapter svg_path(stl_storage);
         svg_renderer<svg_path_adapter,
-                     agg::pod_bvector<path_attributes>,
-                     renderer_solid,
-                     agg::pixfmt_rgba32_plain> svg_renderer(svg_path,
-                             (*marker.get_vector_data())->attributes());
+            agg::pod_bvector<path_attributes>,
+            renderer_solid,
+            agg::pixfmt_rgba32_plain> svg_renderer(svg_path,
+                                                   (*marker.get_vector_data())->attributes());
 
         svg_renderer.render(*ras_ptr, sl, renb, mtx, opacity, bbox);
 

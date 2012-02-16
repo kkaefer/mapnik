@@ -134,7 +134,7 @@ mapnik::value_holder get_params_by_key2(mapnik::parameters const& p, std::string
 
 mapnik::parameter get_params_by_index(mapnik::parameters const& p, int index)
 {
-    if (index < 0 || index > p.size())
+    if (index < 0 || static_cast<unsigned>(index) > p.size())
     {
         PyErr_SetString(PyExc_IndexError, "Index is out of range");
         throw boost::python::error_already_set();
@@ -143,8 +143,8 @@ mapnik::parameter get_params_by_index(mapnik::parameters const& p, int index)
     parameters::const_iterator itr = p.begin();
     parameters::const_iterator end = p.end();
 
-    unsigned idx = 0;
-    while (itr != p.end())
+    int idx = 0;
+    while (itr != end)
     {
         if (idx == index)
         {
@@ -159,7 +159,7 @@ mapnik::parameter get_params_by_index(mapnik::parameters const& p, int index)
 
 void add_parameter(mapnik::parameters & p, mapnik::parameter const& param)
 {
-    p[param.first] = param.second; 
+    p[param.first] = param.second;
 }
 
 mapnik::value_holder get_param(mapnik::parameter const& p, int index)

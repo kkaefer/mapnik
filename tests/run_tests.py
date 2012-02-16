@@ -12,7 +12,7 @@ def usage():
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hvqp:", ["help", "prefix="])
-    except getopt.GetoptError as err:
+    except getopt.GetoptError,err:
         print(str(err))
         usage()
         sys.exit(2)
@@ -63,8 +63,9 @@ def main():
         # 3 * '-v' gets us debugging information from nose
         argv.append('-v')
         argv.append('-v')
-    
-    argv.extend(['-w','./tests/python_tests'])
+   
+    dirname = os.path.dirname(sys.argv[0]) 
+    argv.extend(['-w', dirname+'/python_tests'])
 
     if not nose.run(argv=argv, plugins=[TodoPlugin(), Doctest()]):
         sys.exit(1)

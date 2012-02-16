@@ -233,9 +233,6 @@ class _Projection(Projection,_injector):
 
 class _Datasource(Datasource,_injector):
 
-    def describe(self):
-        return Describe(self)
-
     def all_features(self,fields=None):
         query = Query(self.envelope())
         attributes = fields or self.fields()
@@ -250,44 +247,6 @@ class _Datasource(Datasource,_injector):
             query.add_property_name(fld)
         return self.features(query)
 
-class _DeprecatedFeatureProperties(object):
-
-    def __init__(self, feature):
-        self._feature = feature
-
-    def __getitem__(self, name):
-        warnings.warn("indexing feature.properties is deprecated, index the "
-             "feature object itself for the same effect", DeprecationWarning, 2)
-        return self._feature[name]
-
-    def __iter__(self):
-        warnings.warn("iterating feature.properties is deprecated, iterate the "
-             "feature object itself for the same effect", DeprecationWarning, 2)
-        return iter(self._feature)
-
-class _Feature(Feature, _injector):
-    """
-    A Feature.
-
-    TODO: docs
-    """
-    @property
-    def properties(self):
-        return _DeprecatedFeatureProperties(self)
-
-    @property
-    def attributes(self):
-        #XXX Returns a copy! changes to it won't affect feat.'s attrs.
-        #    maybe deprecate?
-        return dict(self)
-    
-    def __init__(self, id, wkt=None, **properties):
-        Feature._c___init__(self, id)
-        if wkt is not None:
-            self.add_geometries_from_wkt(wkt)
-        for k, v in properties.iteritems():
-            self[k] = v
-    
 class _Color(Color,_injector):
     def __repr__(self):
         return "Color(R=%d,G=%d,B=%d,A=%d)" % (self.r,self.g,self.b,self.a)
@@ -381,7 +340,6 @@ def PostGIS(**keywords):
       srid -- specify srid to use (default: auto-detected from geometry_field)
       row_limit -- integer limit of rows to return (default: 0)
       cursor_size -- integer size of binary cursor to use (default: 0, no binary cursor is used)
-      multiple_geometries -- boolean, direct the Mapnik wkb reader to interpret as multigeometries (default False)
 
     >>> from mapnik import PostGIS, Layer
     >>> params = dict(dbname='mapnik',table='osm',user='postgres',password='gis')
@@ -467,7 +425,6 @@ def Occi(**keywords):
       encoding -- file encoding (default 'utf-8')
       geometry_field -- specify geometry field (default 'GEOLOC')
       use_spatial_index -- boolean, force the use of the spatial index (default True)
-      multiple_geometries -- boolean, direct the Mapnik wkb reader to interpret as multigeometries (default False)
 
     >>> from mapnik import Occi, Layer
     >>> params = dict(host='myoracle',user='scott',password='tiger',table='test')
@@ -492,7 +449,6 @@ def Ogr(**keywords):
       layer_by_sql -- choose layer by sql query number instead of by layer name or index.
       base -- path prefix (default None)
       encoding -- file encoding (default 'utf-8')
-      multiple_geometries -- boolean, direct the Mapnik wkb reader to interpret as multigeometries (default False)
 
     >>> from mapnik import Ogr, Layer
     >>> datasource = Ogr(base='/home/mapnik/data',file='rivers.geojson',layer='OGRGeoJSON') 
@@ -520,7 +476,6 @@ def SQLite(**keywords):
       row_offset -- specify a custom integer row offset (default 0)
       row_limit -- specify a custom integer row limit (default 0)
       wkb_format -- specify a wkb type of 'spatialite' (default None)
-      multiple_geometries -- boolean, direct the Mapnik wkb reader to interpret as multigeometries (default False)
       use_spatial_index -- boolean, instruct sqlite plugin to use Rtree spatial index (default True)
 
     >>> from mapnik import SQLite, Layer
@@ -601,7 +556,6 @@ def Geos(**keywords):
       wkt -- inline WKT text of the geometry
 
     Optional keyword arguments:
-      multiple_geometries -- boolean, direct the GEOS wkt reader to interpret as multigeometries (default False)
       extent -- manually specified data extent (comma delimited string, default None)
 
     >>> from mapnik import Geos, Layer
@@ -655,8 +609,8 @@ __all__ = [
     'Feature',
     'Featureset',
     'FontEngine',
+    'FontSet',
     'Geometry2d',
-    'GlyphSymbolizer',
     'Image',
     'ImageView',
     'Grid',
@@ -671,7 +625,6 @@ __all__ = [
     'Path',
     'Parameter',
     'Parameters',
-    'PointDatasource',
     'PointSymbolizer',
     'PolygonPatternSymbolizer',
     'PolygonSymbolizer',
@@ -714,7 +667,6 @@ __all__ = [
     'SQLite',
     'Osm',
     'Kismet',
-    'Describe',
     #   version and environment
     'mapnik_version_string',
     'mapnik_version',

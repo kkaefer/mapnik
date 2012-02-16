@@ -19,13 +19,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *****************************************************************************/
-// $Id$
 
 #include <mapnik/map.hpp>
 #include <mapnik/datasource_cache.hpp>
 #include <mapnik/font_engine_freetype.hpp>
 #include <mapnik/agg_renderer.hpp>
-#include <mapnik/filter_factory.hpp>
+#include <mapnik/expression.hpp>
 #include <mapnik/color_factory.hpp>
 #include <mapnik/image_util.hpp>
 #include <mapnik/config_error.hpp>
@@ -254,14 +253,14 @@ int main ( int argc , char** argv)
         save_to_file<image_data_32>(buf.data(),"demo.png","png");
         save_to_file<image_data_32>(buf.data(),"demo256.png","png256");
         save_to_file<image_data_32>(buf.data(),"demo.tif","tiff");
-        
+
         std::cout << "Three maps have been rendered using AGG in the current directory:\n"
             "- demo.jpg\n"
             "- demo.png\n"
             "- demo256.png\n"
             "- demo.tif\n"
             "Have a look!\n";
-        
+
 #if defined(HAVE_CAIRO)
         Cairo::RefPtr<Cairo::ImageSurface> image_surface;
 

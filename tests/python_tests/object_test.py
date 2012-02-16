@@ -24,12 +24,11 @@ def test_line_symbolizer_init():
 # ShieldSymbolizer initialization
 def test_shieldsymbolizer_init():
     s = mapnik.ShieldSymbolizer(mapnik.Expression('[Field Name]'), 'DejaVu Sans Bold', 6, mapnik.Color('#000000'), mapnik.PathExpression('../data/images/dummy.png'))
-    eq_(s.anchor, (0.0,0.5,))
     eq_(s.displacement, (0.0,0.0))
     eq_(s.allow_overlap, False)
     eq_(s.avoid_edges, False)
     eq_(s.character_spacing,0)
-    eq_(str(s.name), str(mapnik.Expression('[Field Name]')))
+    #eq_(str(s.name), str(mapnik2.Expression('[Field Name]'))) name field is no longer supported
     eq_(s.face_name, 'DejaVu Sans Bold')
     eq_(s.allow_overlap, False)
     eq_(s.fill, mapnik.Color('#000000'))
@@ -41,7 +40,7 @@ def test_shieldsymbolizer_init():
     eq_(s.text_ratio, 0)
     eq_(s.text_size, 6)
     eq_(s.wrap_width, 0)
-    eq_(s.vertical_alignment, mapnik.vertical_alignment.MIDDLE)
+    eq_(s.vertical_alignment, mapnik.vertical_alignment.AUTO)
     eq_(s.label_spacing, 0)
     eq_(s.label_position_tolerance, 0)
     # 22.5 * M_PI/180.0 initialized by default
@@ -54,7 +53,7 @@ def test_shieldsymbolizer_init():
     
     # r1341
     eq_(s.wrap_before, False)
-    eq_(s.horizontal_alignment, mapnik.horizontal_alignment.MIDDLE)
+    eq_(s.horizontal_alignment, mapnik.horizontal_alignment.AUTO)
     eq_(s.justify_alignment, mapnik.justify_alignment.MIDDLE)
     eq_(s.opacity, 1.0)
     
@@ -71,8 +70,7 @@ def test_shieldsymbolizer_init():
 
     eq_(s.transform, 'matrix(1, 0, 0, 1, 0, 0)')
         
-    raise Todo("FontSet pickling support needed: http://trac.mapnik.org/ticket/348")
-    eq_(s.fontset, '')
+    eq_(len(s.fontset.names), 0)
 
 
 # ShieldSymbolizer missing image file
@@ -199,7 +197,7 @@ def test_linesymbolizer_init():
 def test_textsymbolizer_init():
     ts = mapnik.TextSymbolizer(mapnik.Expression('[Field_Name]'), 'Font Name', 8, mapnik.Color('black'))
 
-    eq_(str(ts.name), str(mapnik.Expression('[Field_Name]')))
+#    eq_(str(ts.name), str(mapnik2.Expression('[Field_Name]'))) name field is no longer supported
     eq_(ts.face_name, 'Font Name')
     eq_(ts.text_size, 8)
     eq_(ts.fill, mapnik.Color('black'))
@@ -213,12 +211,10 @@ def test_layer_init():
     eq_(l.clear_label_cache,False)
     eq_(l.cache_features,False)
     eq_(l.visible(1),True)
-    eq_(l.abstract,'')
     eq_(l.active,True)
     eq_(l.datasource,None)
     eq_(l.queryable,False)
     eq_(l.srs,'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
-    eq_(l.title,'')
 
 # Map initialization
 def test_map_init():
@@ -399,7 +395,6 @@ def test_rule_init():
     r = mapnik.Rule()
    
     eq_(r.name, '')
-    eq_(r.title, '')
     eq_(r.min_scale, 0)
     eq_(r.max_scale, float('inf'))
     eq_(r.has_else(), False)
@@ -420,34 +415,30 @@ def test_rule_init():
     r = mapnik.Rule("Name")
     
     eq_(r.name, 'Name')
-    eq_(r.title, '')
     eq_(r.min_scale, 0)
     eq_(r.max_scale, float('inf'))
     eq_(r.has_else(), False)
     eq_(r.has_also(), False)
     
-    r = mapnik.Rule("Name", "Title")
+    r = mapnik.Rule("Name")
     
     eq_(r.name, 'Name')
-    eq_(r.title, 'Title')
     eq_(r.min_scale, 0)
     eq_(r.max_scale, float('inf'))
     eq_(r.has_else(), False)
     eq_(r.has_also(), False)
     
-    r = mapnik.Rule("Name", "Title", min_scale)
+    r = mapnik.Rule("Name", min_scale)
     
     eq_(r.name, 'Name')
-    eq_(r.title, 'Title')
     eq_(r.min_scale, min_scale)
     eq_(r.max_scale, float('inf'))
     eq_(r.has_else(), False)
     eq_(r.has_also(), False)
     
-    r = mapnik.Rule("Name", "Title", min_scale, max_scale)
+    r = mapnik.Rule("Name", min_scale, max_scale)
     
     eq_(r.name, 'Name')
-    eq_(r.title, 'Title')
     eq_(r.min_scale, min_scale)
     eq_(r.max_scale, max_scale)
     eq_(r.has_else(), False)

@@ -1,5 +1,5 @@
 /*****************************************************************************
- * 
+ *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
  * Copyright (C) 2011 Artem Pavlenko
@@ -38,7 +38,7 @@ extern "C"
 #include <mapnik/map.hpp>
 
 // boost
-#include <boost/lexical_cast.hpp>
+#include <boost/spirit/include/qi.hpp>
 
 // jpeg
 #if defined(HAVE_JPEG)
@@ -73,9 +73,11 @@ extern "C"
 #include "agg_trans_affine.h"
 #include "agg_image_filters.h"
 
+using namespace boost::spirit;
+
 
 namespace mapnik
-{    
+{
 
 template <typename T>
 std::string save_to_string(T const& image,
@@ -124,12 +126,12 @@ void save_to_file(T const& image,
 }
 
 void handle_png_options(std::string const& type,
-                       int * colors,
-                       int * compression,
-                       int * strategy,
-                       int * trans_mode,
-                       double * gamma,
-                       bool * use_octree)
+                        int * colors,
+                        int * compression,
+                        int * strategy,
+                        int * trans_mode,
+                        double * gamma,
+                        bool * use_octree)
 {
     if (type == "png" || type == "png24" || type == "png32")
     {
@@ -156,85 +158,84 @@ void handle_png_options(std::string const& type,
             {
                 *use_octree = true;
             }
-            else if (boost::algorithm::istarts_with(t,std::string("c=")))
+            else if (boost::algorithm::starts_with(t, "c="))
             {
-                try 
+                if (*colors < 0)
+                    throw ImageWriterException("invalid color parameter: unavailable for true color images");
+
+                std::string const& val = t.substr(2);
+                std::string::const_iterator str_beg = val.begin();
+                std::string::const_iterator str_end = val.end();
+                bool r = qi::phrase_parse(str_beg,str_end,qi::int_,ascii::space,*colors);
+                if (!r || (str_beg != str_end) || *colors < 0 || *colors > 256)
+                    throw ImageWriterException("invalid color parameter: " + val);
+            }
+            else if (boost::algorithm::starts_with(t, "t="))
+            {
+                if (*colors < 0)
+                    throw ImageWriterException("invalid trans_mode parameter: unavailable for true color images");
+
+                std::string const& val = t.substr(2);
+                std::string::const_iterator str_beg = val.begin();
+                std::string::const_iterator str_end = val.end();
+                bool r = qi::phrase_parse(str_beg,str_end,qi::int_,ascii::space,*trans_mode);
+                if (!r || (str_beg != str_end) || *trans_mode < 0 || *trans_mode > 2)
+                    throw ImageWriterException("invalid trans_mode parameter: " + val);
+            }
+            else if (boost::algorithm::starts_with(t, "g="))
+            {
+                if (*colors < 0)
+                    throw ImageWriterException("invalid gamma parameter: unavailable for true color images");
+                std::string const& val = t.substr(2);
+                std::string::const_iterator str_beg = val.begin();
+                std::string::const_iterator str_end = val.end();
+                bool r = qi::phrase_parse(str_beg,str_end,qi::double_,ascii::space,*gamma);
+                if (!r || (str_beg != str_end) || *gamma < 0)
                 {
-                    if (*colors < 0)
-                        throw ImageWriterException("invalid color parameter: unavailable for true color images");
-                    *colors = boost::lexical_cast<int>(t.substr(2));
-                    if (*colors < 0 || *colors > 256)
-                        throw ImageWriterException("invalid color parameter: " + t.substr(2) + " out of bounds");
-                }
-                catch(boost::bad_lexical_cast &)
-                {
-                    throw ImageWriterException("invalid color parameter: " + t.substr(2));
+                    throw ImageWriterException("invalid gamma parameter: " + val);
                 }
             }
-            else if (boost::algorithm::istarts_with(t, std::string("t=")))
+            else if (boost::algorithm::starts_with(t, "z="))
             {
-                try 
+                /*
+                  #define Z_NO_COMPRESSION         0
+                  #define Z_BEST_SPEED             1
+                  #define Z_BEST_COMPRESSION       9
+                  #define Z_DEFAULT_COMPRESSION  (-1)
+                */
+                std::string const& val = t.substr(2);
+                std::string::const_iterator str_beg = val.begin();
+                std::string::const_iterator str_end = val.end();
+                bool r = qi::phrase_parse(str_beg,str_end,qi::int_,ascii::space,*compression);
+                if (!r || (str_beg != str_end)
+                    || *compression < Z_DEFAULT_COMPRESSION
+                    || *compression > Z_BEST_COMPRESSION)
                 {
-                    if (*colors < 0)
-                        throw ImageWriterException("invalid trans_mode parameter: unavailable for true color images");
-                    *trans_mode = boost::lexical_cast<int>(t.substr(2));
-                    if (*trans_mode < 0 || *trans_mode > 2)
-                        throw ImageWriterException("invalid trans_mode parameter: " + t.substr(2) + " out of bounds");
-                }
-                catch(boost::bad_lexical_cast &)
-                {
-                    throw ImageWriterException("invalid trans_mode parameter: " + t.substr(2));
+                    throw ImageWriterException("invalid compression parameter: " + val + " (only -1 through 9 are valid)");
                 }
             }
-            else if (boost::algorithm::istarts_with(t, std::string("g=")))
+            else if (boost::algorithm::starts_with(t, "s="))
             {
-                try 
+                std::string const& s = t.substr(2);
+                if (s == "default")
                 {
-                    if (*colors < 0)
-                        throw ImageWriterException("invalid gamma parameter: unavailable for true color images");
-                    *gamma = boost::lexical_cast<double>(t.substr(2));
-                    if (*gamma < 0)
-                        throw ImageWriterException("invalid gamma parameter: " + t.substr(2) + " out of bounds");
+                    *strategy = Z_DEFAULT_STRATEGY;
                 }
-                catch(boost::bad_lexical_cast &)
+                else if (s == "filtered")
                 {
-                    throw ImageWriterException("invalid gamma parameter: " + t.substr(2));
+                    *strategy = Z_FILTERED;
                 }
-            }
-            else if (boost::algorithm::istarts_with(t,std::string("z=")))
-            {
-                try
+                else if (s == "huff")
                 {
-                    *compression = boost::lexical_cast<int>(t.substr(2));
-                    /*
-                     #define Z_NO_COMPRESSION         0
-                     #define Z_BEST_SPEED             1
-                     #define Z_BEST_COMPRESSION       9
-                     #define Z_DEFAULT_COMPRESSION  (-1)
-                    */
-                     if (*compression < Z_DEFAULT_COMPRESSION || *compression > Z_BEST_COMPRESSION)
-                        throw ImageWriterException("invalid compression parameter: " + t.substr(2) + " out of bounds (only -1 through 9 are valid)");
+                    *strategy = Z_HUFFMAN_ONLY;
                 }
-                catch(boost::bad_lexical_cast &)
+                else if (s == "rle")
                 {
-                    throw ImageWriterException("invalid compression parameter: " + t.substr(2));
+                    *strategy = Z_RLE;
                 }
-            }
-            else if (boost::algorithm::istarts_with(t,std::string("s=")))
-            {
-                try
+                else
                 {
-                    std::string s = boost::lexical_cast<std::string>(t.substr(2));
-                    if (s == "default") *strategy = Z_DEFAULT_STRATEGY;
-                    else if (s == "filtered") *strategy = Z_FILTERED;
-                    else if (s == "huff") *strategy = Z_HUFFMAN_ONLY;
-                    else if (s == "rle") *strategy = Z_RLE;
-                    else
-                        throw ImageWriterException("invalid compression strategy parameter: " + s);
-                }
-                catch(boost::bad_lexical_cast &)
-                {
-                    throw ImageWriterException("invalid compression strategy parameter: " + t.substr(2));
+                    throw ImageWriterException("invalid compression strategy parameter: " + s);
                 }
             }
         }
@@ -247,10 +248,11 @@ void save_to_stream(T const& image,
                     std::string const& type,
                     rgba_palette const& palette)
 {
-    if (stream)
+    if (stream && image.width() > 0 && image.height() > 0)
     {
         //all this should go into image_writer factory
-        if (type == "png" || boost::algorithm::istarts_with(type, std::string("png")))
+        std::string t = boost::algorithm::to_lower_copy(type);
+        if (t == "png" || boost::algorithm::starts_with(t, "png"))
         {
             int colors  = 256;
             int compression = Z_DEFAULT_COMPRESSION;
@@ -259,13 +261,13 @@ void save_to_stream(T const& image,
             double gamma = -1;
             bool use_octree = true;
 
-            handle_png_options(type,
-                              &colors,
-                              &compression,
-                              &strategy,
-                              &trans_mode,
-                              &gamma,
-                              &use_octree);
+            handle_png_options(t,
+                               &colors,
+                               &compression,
+                               &strategy,
+                               &trans_mode,
+                               &gamma,
+                               &use_octree);
 
             if (palette.valid())
                 save_as_png8_pal(stream, image, palette, compression, strategy);
@@ -276,18 +278,18 @@ void save_to_stream(T const& image,
             else
                 save_as_png8_hex(stream, image, colors, compression, strategy, trans_mode, gamma);
         }
-        else if (boost::algorithm::istarts_with(type, std::string("tif")))
+        else if (boost::algorithm::starts_with(t, "tif"))
         {
             throw ImageWriterException("palettes are not currently supported when writing to tiff format (yet)");
         }
 #if defined(HAVE_JPEG)
-        else if (boost::algorithm::istarts_with(type, std::string("jpeg")))
+        else if (boost::algorithm::starts_with(t, "jpeg"))
         {
             throw ImageWriterException("palettes are not currently supported when writing to jpeg format");
         }
 #endif
         else throw ImageWriterException("unknown file type: " + type);
-    } 
+    }
     else throw ImageWriterException("Could not write to empty stream" );
 }
 
@@ -297,10 +299,11 @@ void save_to_stream(T const& image,
                     std::ostream & stream,
                     std::string const& type)
 {
-    if (stream)
+    if (stream && image.width() > 0 && image.height() > 0)
     {
         //all this should go into image_writer factory
-        if (type == "png" || boost::algorithm::istarts_with(type, std::string("png")))
+        std::string t = boost::algorithm::to_lower_copy(type);
+        if (t == "png" || boost::algorithm::starts_with(t, "png"))
         {
             int colors  = 256;
             int compression = Z_DEFAULT_COMPRESSION;
@@ -309,13 +312,13 @@ void save_to_stream(T const& image,
             double gamma = -1;
             bool use_octree = true;
 
-            handle_png_options(type,
-                              &colors,
-                              &compression,
-                              &strategy,
-                              &trans_mode,
-                              &gamma,
-                              &use_octree);
+            handle_png_options(t,
+                               &colors,
+                               &compression,
+                               &strategy,
+                               &trans_mode,
+                               &gamma,
+                               &use_octree);
 
             if (colors < 0)
                 save_as_png(stream, image, compression, strategy);
@@ -324,32 +327,30 @@ void save_to_stream(T const& image,
             else
                 save_as_png8_hex(stream, image, colors, compression, strategy, trans_mode, gamma);
         }
-        else if (boost::algorithm::istarts_with(type, std::string("tif")))
+        else if (boost::algorithm::starts_with(t, "tif"))
         {
             save_as_tiff(stream, image);
         }
 #if defined(HAVE_JPEG)
-        else if (boost::algorithm::istarts_with(type, std::string("jpeg")))
+        else if (boost::algorithm::starts_with(t, "jpeg"))
         {
             int quality = 85;
-            try 
+            std::string const& val = t.substr(4);
+            if(!val.empty())
             {
-                if(type.substr(4).length() != 0)
+                std::string::const_iterator str_beg = val.begin();
+                std::string::const_iterator str_end = val.end();
+                bool r = qi::phrase_parse(str_beg,str_end,qi::int_,ascii::space,quality);
+                if (!r || (str_beg != str_end) || quality < 0 || quality > 100)
                 {
-                    quality = boost::lexical_cast<int>(type.substr(4));
-                    if(quality<0 || quality>100)
-                        throw ImageWriterException("invalid jpeg quality: " + type.substr(4) + " out of bounds");
+                    throw ImageWriterException("invalid jpeg quality: " + val);
                 }
-                save_as_jpeg(stream, quality, image); 
-            } 
-            catch(boost::bad_lexical_cast &)
-            {
-                throw ImageWriterException("invalid jpeg quality: " + type.substr(4) + " not a number");
             }
+            save_as_jpeg(stream, quality, image);
         }
 #endif
         else throw ImageWriterException("unknown file type: " + type);
-    } 
+    }
     else throw ImageWriterException("Could not write to empty stream" );
 }
 
@@ -404,24 +405,24 @@ void save_to_cairo_file(mapnik::Map const& map,
             surface = Cairo::ImageSurface::create(Cairo::FORMAT_ARGB32,width,height);
         else if (type == "RGB24")
             surface = Cairo::ImageSurface::create(Cairo::FORMAT_RGB24,width,height);
-        else 
-            throw ImageWriterException("unknown file type: " + type);    
+        else
+            throw ImageWriterException("unknown file type: " + type);
         Cairo::RefPtr<Cairo::Context> context = Cairo::Context::create(surface);
-    
+
         // TODO - expose as user option
         /*
-          if (type == "ARGB32" || type == "RGB24") 
-          { 
-          context->set_antialias(Cairo::ANTIALIAS_NONE); 
+          if (type == "ARGB32" || type == "RGB24")
+          {
+          context->set_antialias(Cairo::ANTIALIAS_NONE);
           }
         */
-          
-    
+
+
         mapnik::cairo_renderer<Cairo::Context> ren(map, context);
         ren.apply();
-    
-        if (type == "ARGB32" || type == "RGB24") 
-        { 
+
+        if (type == "ARGB32" || type == "RGB24")
+        {
             surface->write_to_png(filename);
         }
         surface->finish();
@@ -464,14 +465,14 @@ template void save_to_file<image_view<image_data_32> > (image_view<image_data_32
 
 template void save_to_file<image_view<image_data_32> > (image_view<image_data_32> const&,
                                                         std::string const&);
-   
+
 template void save_to_file<image_view<image_data_32> > (image_view<image_data_32> const&,
                                                         std::string const&,
                                                         rgba_palette const& palette);
-   
+
 template std::string save_to_string<image_view<image_data_32> > (image_view<image_data_32> const&,
                                                                  std::string const&);
-   
+
 template std::string save_to_string<image_view<image_data_32> > (image_view<image_data_32> const&,
                                                                  std::string const&,
                                                                  rgba_palette const& palette);
@@ -691,26 +692,26 @@ void scale_image_agg (Image& target,const Image& source, scaling_method_e scalin
 {
     typedef agg::pixfmt_rgba32_plain pixfmt;
     typedef agg::renderer_base<pixfmt> renderer_base;
-    
+
     // define some stuff we'll use soon
     agg::rasterizer_scanline_aa<> ras;
     agg::scanline_u8 sl;
     agg::span_allocator<agg::rgba8> sa;
     agg::image_filter_lut filter;
-    
+
     // initialize source AGG buffer
     agg::rendering_buffer rbuf_src((unsigned char*)source.getBytes(), source.width(), source.height(), source.width() * 4);
     pixfmt pixf_src(rbuf_src);
-    
+
     typedef agg::image_accessor_clone<pixfmt> img_src_type;
     img_src_type img_src(pixf_src);
-    
+
     // initialise destination AGG buffer (with transparency)
     agg::rendering_buffer rbuf_dst((unsigned char*)target.getBytes(), target.width(), target.height(), target.width() * 4);
     pixfmt pixf_dst(rbuf_dst);
     renderer_base rb_dst(pixf_dst);
     rb_dst.clear(agg::rgba(0, 0, 0, 0));
-    
+
     // create a scaling matrix
     agg::trans_affine img_mtx;
     img_mtx /= agg::trans_affine_scaling(scale_factor * ratio, scale_factor * ratio);
@@ -718,7 +719,7 @@ void scale_image_agg (Image& target,const Image& source, scaling_method_e scalin
     // create a linear interpolator for our scaling matrix
     typedef agg::span_interpolator_linear<> interpolator_type;
     interpolator_type interpolator(img_mtx);
-    
+
     // draw an anticlockwise polygon to render our image into
     double scaled_width = source.width() * scale_factor;
     double scaled_height = source.height() * scale_factor;
@@ -727,48 +728,48 @@ void scale_image_agg (Image& target,const Image& source, scaling_method_e scalin
     ras.line_to_d(x_off_f + scaled_width, y_off_f);
     ras.line_to_d(x_off_f + scaled_width, y_off_f + scaled_height);
     ras.line_to_d(x_off_f,                y_off_f + scaled_height);
-    
+
     switch(scaling_method)
     {
-        case SCALING_NEAR:
-        {
-            typedef agg::span_image_filter_rgba_nn<img_src_type, interpolator_type> span_gen_type;
-            span_gen_type sg(img_src, interpolator);
-            agg::render_scanlines_aa(ras, sl, rb_dst, sa, sg);
-            return;
-        }
-        case SCALING_BILINEAR:
-            filter.calculate(agg::image_filter_bilinear(), true); break;
-        case SCALING_BICUBIC:
-            filter.calculate(agg::image_filter_bicubic(), true); break;
-        case SCALING_SPLINE16:
-            filter.calculate(agg::image_filter_spline16(), true); break;
-        case SCALING_SPLINE36:
-            filter.calculate(agg::image_filter_spline36(), true); break;
-        case SCALING_HANNING:
-            filter.calculate(agg::image_filter_hanning(), true); break;
-        case SCALING_HAMMING:
-            filter.calculate(agg::image_filter_hamming(), true); break;
-        case SCALING_HERMITE:
-            filter.calculate(agg::image_filter_hermite(), true); break;
-        case SCALING_KAISER:
-            filter.calculate(agg::image_filter_kaiser(), true); break;
-        case SCALING_QUADRIC:
-            filter.calculate(agg::image_filter_quadric(), true); break;
-        case SCALING_CATROM:
-            filter.calculate(agg::image_filter_catrom(), true); break;
-        case SCALING_GAUSSIAN:
-            filter.calculate(agg::image_filter_gaussian(), true); break;
-        case SCALING_BESSEL:
-            filter.calculate(agg::image_filter_bessel(), true); break;
-        case SCALING_MITCHELL:
-            filter.calculate(agg::image_filter_mitchell(), true); break;
-        case SCALING_SINC:
-            filter.calculate(agg::image_filter_sinc(filter_radius), true); break;
-        case SCALING_LANCZOS:
-            filter.calculate(agg::image_filter_lanczos(filter_radius), true); break;
-        case SCALING_BLACKMAN:
-            filter.calculate(agg::image_filter_blackman(filter_radius), true); break;
+    case SCALING_NEAR:
+    {
+        typedef agg::span_image_filter_rgba_nn<img_src_type, interpolator_type> span_gen_type;
+        span_gen_type sg(img_src, interpolator);
+        agg::render_scanlines_aa(ras, sl, rb_dst, sa, sg);
+        return;
+    }
+    case SCALING_BILINEAR:
+        filter.calculate(agg::image_filter_bilinear(), true); break;
+    case SCALING_BICUBIC:
+        filter.calculate(agg::image_filter_bicubic(), true); break;
+    case SCALING_SPLINE16:
+        filter.calculate(agg::image_filter_spline16(), true); break;
+    case SCALING_SPLINE36:
+        filter.calculate(agg::image_filter_spline36(), true); break;
+    case SCALING_HANNING:
+        filter.calculate(agg::image_filter_hanning(), true); break;
+    case SCALING_HAMMING:
+        filter.calculate(agg::image_filter_hamming(), true); break;
+    case SCALING_HERMITE:
+        filter.calculate(agg::image_filter_hermite(), true); break;
+    case SCALING_KAISER:
+        filter.calculate(agg::image_filter_kaiser(), true); break;
+    case SCALING_QUADRIC:
+        filter.calculate(agg::image_filter_quadric(), true); break;
+    case SCALING_CATROM:
+        filter.calculate(agg::image_filter_catrom(), true); break;
+    case SCALING_GAUSSIAN:
+        filter.calculate(agg::image_filter_gaussian(), true); break;
+    case SCALING_BESSEL:
+        filter.calculate(agg::image_filter_bessel(), true); break;
+    case SCALING_MITCHELL:
+        filter.calculate(agg::image_filter_mitchell(), true); break;
+    case SCALING_SINC:
+        filter.calculate(agg::image_filter_sinc(filter_radius), true); break;
+    case SCALING_LANCZOS:
+        filter.calculate(agg::image_filter_lanczos(filter_radius), true); break;
+    case SCALING_BLACKMAN:
+        filter.calculate(agg::image_filter_blackman(filter_radius), true); break;
     }
     typedef agg::span_image_resample_rgba_affine<img_src_type> span_gen_type;
     span_gen_type sg(img_src, interpolator, filter);
